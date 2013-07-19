@@ -23,7 +23,7 @@
 
 -export([init_per_testcase/2, end_per_testcase/2]).
 
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+-export([all/0, groups/0,init_per_suite/1, end_per_suite/1, 
 	 init_per_group/2,end_per_group/2]).
 -export([start/1, crash/1, call/1, cast/1, cast_fast/1,
 	 info/1, abcast/1, multicall/1, multicall_down/1,
@@ -46,8 +46,6 @@
 % The genie_server behaviour
 -export([init/1, handle_call/3, handle_cast/2,
 	 handle_info/2, terminate/2, format_status/2]).
-
-suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [start, crash, call, cast, cast_fast, info, abcast,
@@ -341,7 +339,9 @@ call(Config) when is_list(Config) ->
 
 start_node(Name) ->
     ?line Pa = filename:dirname(code:which(?MODULE)),
-    ?line N = test_server:start_node(Name, slave, [{args, " -pa " ++ Pa}]),
+    ?line Pa2 = filename:dirname(code:which(genie_server)),
+    ?line N = test_server:start_node(Name, slave, [{args, " -pa " ++ Pa ++ " "
+							  ++ " -pa " ++ Pa2}]),
     %% After starting a slave, it takes a little while until global knows
     %% about it, even if nodes() includes it, so we make sure that global
     %% knows about it before registering something on all nodes.
