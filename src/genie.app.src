@@ -1,0 +1,9 @@
+{application, genie,
+  [
+    {description, "Gen replacement library"},
+    {vsn, "0.1.0"},
+    {applications, [
+                    kernel,
+                    stdlib
+                   ]}
+ ]}.
