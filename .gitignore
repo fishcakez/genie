@@ -1,0 +1,12 @@
+erl_crash.dump
+*.beam
+*.plt
+*.swp
+.eunit/
+deps/
+doc/edoc-info
+doc/*.css
+doc/*.html
+doc/*.png
+ebin/
+logs/
