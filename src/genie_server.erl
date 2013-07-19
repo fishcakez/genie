@@ -16,7 +16,7 @@
 %%
 %% %CopyrightEnd%
 %%
--module(gen_server).
+-module(genie_server).
 
 %%% ---------------------------------------------------
 %%%
@@ -153,16 +153,16 @@
 %%%          {error, Reason}
 %%% -----------------------------------------------------------------
 start(Mod, Args, Options) ->
-    gen:start(?MODULE, nolink, Mod, Args, Options).
+    genie:start(?MODULE, nolink, Mod, Args, Options).
 
 start(Name, Mod, Args, Options) ->
-    gen:start(?MODULE, nolink, Name, Mod, Args, Options).
+    genie:start(?MODULE, nolink, Name, Mod, Args, Options).
 
 start_link(Mod, Args, Options) ->
-    gen:start(?MODULE, link, Mod, Args, Options).
+    genie:start(?MODULE, link, Mod, Args, Options).
 
 start_link(Name, Mod, Args, Options) ->
-    gen:start(?MODULE, link, Name, Mod, Args, Options).
+    genie:start(?MODULE, link, Name, Mod, Args, Options).
 
 
 %% -----------------------------------------------------------------
@@ -173,7 +173,7 @@ start_link(Name, Mod, Args, Options) ->
 %% is handled here (? Shall we do that here (or rely on timeouts) ?).
 %% ----------------------------------------------------------------- 
 call(Name, Request) ->
-    case catch gen:call(Name, '$gen_call', Request) of
+    case catch genie:call(Name, '$gen_call', Request) of
 	{ok,Res} ->
 	    Res;
 	{'EXIT',Reason} ->
@@ -181,7 +181,7 @@ call(Name, Request) ->
     end.
 
 call(Name, Request, Timeout) ->
-    case catch gen:call(Name, '$gen_call', Request, Timeout) of
+    case catch genie:call(Name, '$gen_call', Request, Timeout) of
 	{ok,Res} ->
 	    Res;
 	{'EXIT',Reason} ->
@@ -258,9 +258,9 @@ multi_call(Nodes, Name, Req, Timeout)
 %%-----------------------------------------------------------------
 %% enter_loop(Mod, Options, State, <ServerName>, <TimeOut>) ->_ 
 %%   
-%% Description: Makes an existing process into a gen_server. 
-%%              The calling process will enter the gen_server receive 
-%%              loop and become a gen_server process.
+%% Description: Makes an existing process into a genie_server. 
+%%              The calling process will enter the genie_server receive 
+%%              loop and become a genie_server process.
 %%              The process *must* have been started using one of the 
 %%              start functions in proc_lib, see proc_lib(3). 
 %%              The user is responsible for any initialization of the 
@@ -873,7 +873,7 @@ name_to_pid(Name) ->
 %%-----------------------------------------------------------------
 format_status(Opt, StatusData) ->
     [PDict, SysState, Parent, Debug, [Name, State, Mod, _Time]] = StatusData,
-    Header = gen:format_status_header("Status for generic server",
+    Header = genie:format_status_header("Status for generic server",
                                       Name),
     Log = sys:get_debug(log, Debug, []),
     DefaultStatus = [{data, [{"State", State}]}],

@@ -16,7 +16,7 @@
 %%
 %% %CopyrightEnd%
 %%
--module(gen_event).
+-module(genie_event).
 
 %%% 
 %%% A general event handler.
@@ -58,15 +58,15 @@
 %%%  API
 %%%=========================================================================
 
-%% gen_event:start(Handler) -> {ok, Pid} | {error, What}
-%%   gen_event:add_handler(Handler, Mod, Args) -> ok | Other
-%%      gen_event:notify(Handler, Event) -> ok
-%%      gen_event:call(Handler, Mod, Query) -> {ok, Val} | {error, Why}
-%%      gen_event:call(Handler, Mod, Query, Timeout) -> {ok, Val} | {error, Why}
-%%   gen_event:delete_handler(Handler, Mod, Args) -> Val
-%%   gen_event:swap_handler(Handler, {OldMod, Args1}, {NewMod, Args2}) -> ok
-%%   gen_event:which_handler(Handler) -> [Mod]
-%% gen_event:stop(Handler) -> ok 
+%% genie_event:start(Handler) -> {ok, Pid} | {error, What}
+%%   genie_event:add_handler(Handler, Mod, Args) -> ok | Other
+%%      genie_event:notify(Handler, Event) -> ok
+%%      genie_event:call(Handler, Mod, Query) -> {ok, Val} | {error, Why}
+%%      genie_event:call(Handler, Mod, Query, Timeout) -> {ok, Val} | {error, Why}
+%%   genie_event:delete_handler(Handler, Mod, Args) -> Val
+%%   genie_event:swap_handler(Handler, {OldMod, Args1}, {NewMod, Args2}) -> ok
+%%   genie_event:which_handler(Handler) -> [Mod]
+%% genie_event:stop(Handler) -> ok 
 
 -callback init(InitArgs :: term()) ->
     {ok, State :: term()} |
@@ -119,26 +119,26 @@
 
 -spec start() -> start_ret().
 start() ->
-    gen:start(?MODULE, nolink, ?NO_CALLBACK, [], []).
+    genie:start(?MODULE, nolink, ?NO_CALLBACK, [], []).
 
 -spec start(emgr_name()) -> start_ret().
 start(Name) ->
-    gen:start(?MODULE, nolink, Name, ?NO_CALLBACK, [], []).
+    genie:start(?MODULE, nolink, Name, ?NO_CALLBACK, [], []).
 
 -spec start_link() -> start_ret().
 start_link() ->
-    gen:start(?MODULE, link, ?NO_CALLBACK, [], []).
+    genie:start(?MODULE, link, ?NO_CALLBACK, [], []).
 
 -spec start_link(emgr_name()) -> start_ret().
 start_link(Name) ->
-    gen:start(?MODULE, link, Name, ?NO_CALLBACK, [], []).
+    genie:start(?MODULE, link, Name, ?NO_CALLBACK, [], []).
 
 %% -spec init_it(pid(), 'self' | pid(), emgr_name(), module(), [term()], [_]) -> 
 init_it(Starter, self, Name, Mod, Args, Options) ->
     init_it(Starter, self(), Name, Mod, Args, Options);
 init_it(Starter, Parent, Name0, _, _, Options) ->
     process_flag(trap_exit, true),
-    Debug = gen:debug_options(Options),
+    Debug = genie:debug_options(Options),
     proc_lib:init_ack(Starter, {ok, self()}),
     Name = name(Name0),
     loop(Parent, Name, [], Debug, false).
@@ -186,12 +186,12 @@ which_handlers(M) -> rpc(M, which_handlers).
 stop(M) -> rpc(M, stop).
 
 rpc(M, Cmd) -> 
-    {ok, Reply} = gen:call(M, self(), Cmd, infinity),
+    {ok, Reply} = genie:call(M, self(), Cmd, infinity),
     Reply.
 
 call1(M, Handler, Query) ->
     Cmd = {call, Handler, Query},
-    try gen:call(M, self(), Cmd) of
+    try genie:call(M, self(), Cmd) of
 	{ok, Res} ->
 	    Res
     catch
@@ -201,7 +201,7 @@ call1(M, Handler, Query) ->
 
 call1(M, Handler, Query, Timeout) ->
     Cmd = {call, Handler, Query},
-    try gen:call(M, self(), Cmd, Timeout) of
+    try genie:call(M, self(), Cmd, Timeout) of
 	{ok, Res} ->
 	    Res
     catch
@@ -667,7 +667,7 @@ report_terminate(Handler, Reason, State, LastIn, SName) ->
 	false ->
 	    ok;
 	Pid ->
-	    Pid ! {gen_event_EXIT,handler(Handler),Reason},
+	    Pid ! {genie_event_EXIT,handler(Handler),Reason},
 	    ok
     end.
 
@@ -705,7 +705,7 @@ report_error(Handler, Reason, State, LastIn, SName) ->
 		   _ ->
 		       State
 	       end,
-    error_msg("** gen_event handler ~p crashed.~n"
+    error_msg("** genie_event handler ~p crashed.~n"
 	      "** Was installed in ~p~n"
 	      "** Last event was: ~p~n"
 	      "** When handler state == ~p~n"
@@ -741,7 +741,7 @@ get_modules(MSL) ->
 %%-----------------------------------------------------------------
 format_status(Opt, StatusData) ->
     [PDict, SysState, Parent, _Debug, [ServerName, MSL, _Hib]] = StatusData,
-    Header = gen:format_status_header("Status for event handler",
+    Header = genie:format_status_header("Status for event handler",
                                       ServerName),
     FmtMSL = [case erlang:function_exported(Mod, format_status, 2) of
 		  true ->

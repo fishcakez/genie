@@ -16,7 +16,7 @@
 %%
 %% %CopyrightEnd%
 %%
--module(gen_fsm).
+-module(genie_fsm).
 
 %%%-----------------------------------------------------------------
 %%%   
@@ -176,16 +176,16 @@
 %%%          {error, Reason}
 %%% ---------------------------------------------------
 start(Mod, Args, Options) ->
-    gen:start(?MODULE, nolink, Mod, Args, Options).
+    genie:start(?MODULE, nolink, Mod, Args, Options).
 
 start(Name, Mod, Args, Options) ->
-    gen:start(?MODULE, nolink, Name, Mod, Args, Options).
+    genie:start(?MODULE, nolink, Name, Mod, Args, Options).
 
 start_link(Mod, Args, Options) ->
-    gen:start(?MODULE, link, Mod, Args, Options).
+    genie:start(?MODULE, link, Mod, Args, Options).
 
 start_link(Name, Mod, Args, Options) ->
-    gen:start(?MODULE, link, Name, Mod, Args, Options).
+    genie:start(?MODULE, link, Name, Mod, Args, Options).
 
 
 send_event({global, Name}, Event) ->
@@ -199,7 +199,7 @@ send_event(Name, Event) ->
     ok.
 
 sync_send_event(Name, Event) ->
-    case catch gen:call(Name, '$gen_sync_event', Event) of
+    case catch genie:call(Name, '$gen_sync_event', Event) of
 	{ok,Res} ->
 	    Res;
 	{'EXIT',Reason} ->
@@ -207,7 +207,7 @@ sync_send_event(Name, Event) ->
     end.
 
 sync_send_event(Name, Event, Timeout) ->
-    case catch gen:call(Name, '$gen_sync_event', Event, Timeout) of
+    case catch genie:call(Name, '$gen_sync_event', Event, Timeout) of
 	{ok,Res} ->
 	    Res;
 	{'EXIT',Reason} ->
@@ -225,7 +225,7 @@ send_all_state_event(Name, Event) ->
     ok.
 
 sync_send_all_state_event(Name, Event) ->
-    case catch gen:call(Name, '$gen_sync_all_state_event', Event) of
+    case catch genie:call(Name, '$gen_sync_all_state_event', Event) of
 	{ok,Res} ->
 	    Res;
 	{'EXIT',Reason} ->
@@ -233,7 +233,7 @@ sync_send_all_state_event(Name, Event) ->
     end.
 
 sync_send_all_state_event(Name, Event, Timeout) ->
-    case catch gen:call(Name, '$gen_sync_all_state_event', Event, Timeout) of
+    case catch genie:call(Name, '$gen_sync_all_state_event', Event, Timeout) of
 	{ok,Res} ->
 	    Res;
 	{'EXIT',Reason} ->
@@ -269,9 +269,9 @@ cancel_timer(Ref) ->
     end.
 
 %% enter_loop/4,5,6
-%% Makes an existing process into a gen_fsm.
-%% The calling process will enter the gen_fsm receive loop and become a
-%% gen_fsm process.
+%% Makes an existing process into a genie_fsm.
+%% The calling process will enter the genie_fsm receive loop and become a
+%% genie_fsm process.
 %% The process *must* have been started using one of the start functions
 %% in proc_lib, see proc_lib(3).
 %% The user is responsible for any initialization of the process,
@@ -290,7 +290,7 @@ enter_loop(Mod, Options, StateName, StateData, Timeout) ->
 enter_loop(Mod, Options, StateName, StateData, ServerName, Timeout) ->
     Name = get_proc_name(ServerName),
     Parent = get_parent(),
-    Debug = gen:debug_options(Options),
+    Debug = genie:debug_options(Options),
     loop(Parent, Name, StateName, StateData, Mod, Timeout, Debug).
 
 get_proc_name(Pid) when is_pid(Pid) ->
@@ -357,7 +357,7 @@ init_it(Starter, self, Name, Mod, Args, Options) ->
     init_it(Starter, self(), Name, Mod, Args, Options);
 init_it(Starter, Parent, Name0, Mod, Args, Options) ->
     Name = name(Name0),
-    Debug = gen:debug_options(Options),
+    Debug = genie:debug_options(Options),
     case catch Mod:init(Args) of
 	{ok, StateName, StateData} ->
 	    proc_lib:init_ack(Starter, {ok, self()}), 	    
@@ -679,7 +679,7 @@ get_msg(Msg) -> Msg.
 format_status(Opt, StatusData) ->
     [PDict, SysState, Parent, Debug, [Name, StateName, StateData, Mod, _Time]] =
 	StatusData,
-    Header = gen:format_status_header("Status for state machine",
+    Header = genie:format_status_header("Status for state machine",
                                       Name),
     Log = sys:get_debug(log, Debug, []),
     DefaultStatus = [{data, [{"StateData", StateData}]}],

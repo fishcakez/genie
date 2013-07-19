@@ -16,12 +16,12 @@
 %%
 %% %CopyrightEnd%
 %%
--module(gen).
+-module(genie).
 -compile({inline,[get_node/1]}).
 
 %%%-----------------------------------------------------------------
 %%% This module implements the really generic stuff of the generic
-%%% standard behaviours (e.g. gen_server, gen_fsm).
+%%% standard behaviours (e.g. genie_server, genie_fsm).
 %%%
 %%% The standard behaviour should export init_it/6.
 %%%-----------------------------------------------------------------

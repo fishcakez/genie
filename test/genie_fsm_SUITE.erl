@@ -16,7 +16,7 @@
 %%
 %% %CopyrightEnd%
 %%
--module(gen_fsm_SUITE).
+-module(genie_fsm_SUITE).
 
 -include_lib("test_server/include/test_server.hrl").
 
@@ -41,7 +41,7 @@
 -export([do_msg/1, do_sync_msg/1]).
 -export([enter_loop/2]).
 
-% The gen_fsm behaviour
+% The genie_fsm behaviour
 -export([init/1, handle_event/3, handle_sync_event/4, terminate/3,
 	 handle_info/3, format_status/2]).
 -export([idle/2,	idle/3,
@@ -84,13 +84,13 @@ end_per_group(_GroupName, Config) ->
 start1(Config) when is_list(Config) ->
     %%OldFl = process_flag(trap_exit, true),
 
-    ?line {ok, Pid0} = gen_fsm:start_link(gen_fsm_SUITE, [], []),
+    ?line {ok, Pid0} = genie_fsm:start_link(genie_fsm_SUITE, [], []),
     ?line ok = do_func_test(Pid0),
     ?line ok = do_sync_func_test(Pid0),
     stop_it(Pid0),
-%%    ?line stopped = gen_fsm:sync_send_all_state_event(Pid0, stop),
+%%    ?line stopped = genie_fsm:sync_send_all_state_event(Pid0, stop),
 %%    ?line {'EXIT', {timeout,_}} = 
-%%	(catch gen_fsm:sync_send_event(Pid0, hej)),
+%%	(catch genie_fsm:sync_send_event(Pid0, hej)),
 
     ?line test_server:messages_get(),
     %%process_flag(trap_exit, OldFl),
@@ -99,13 +99,13 @@ start1(Config) when is_list(Config) ->
 %% anonymous w. shutdown
 start2(Config) when is_list(Config) ->
     %% Dont link when shutdown
-    ?line {ok, Pid0} = gen_fsm:start(gen_fsm_SUITE, [], []),
+    ?line {ok, Pid0} = genie_fsm:start(genie_fsm_SUITE, [], []),
     ?line ok = do_func_test(Pid0),
     ?line ok = do_sync_func_test(Pid0),
     ?line shutdown_stopped = 
-	gen_fsm:sync_send_all_state_event(Pid0, stop_shutdown),
+	genie_fsm:sync_send_all_state_event(Pid0, stop_shutdown),
     ?line {'EXIT', {noproc,_}} = 
-	(catch gen_fsm:sync_send_event(Pid0, hej)),
+	(catch genie_fsm:sync_send_event(Pid0, hej)),
 
     ?line test_server:messages_get(),
     ok.
@@ -114,12 +114,12 @@ start2(Config) when is_list(Config) ->
 start3(Config) when is_list(Config) ->
     %%OldFl = process_flag(trap_exit, true),
 
-    ?line {ok, Pid0} = gen_fsm:start(gen_fsm_SUITE, [], [{timeout,5}]),
+    ?line {ok, Pid0} = genie_fsm:start(genie_fsm_SUITE, [], [{timeout,5}]),
     ?line ok = do_func_test(Pid0),
     ?line ok = do_sync_func_test(Pid0),
     ?line stop_it(Pid0),
     
-    ?line {error, timeout} = gen_fsm:start(gen_fsm_SUITE, sleep,
+    ?line {error, timeout} = genie_fsm:start(genie_fsm_SUITE, sleep,
 					   [{timeout,5}]),
 
     test_server:messages_get(),
@@ -131,7 +131,7 @@ start4(suite) -> [];
 start4(Config) when is_list(Config) ->
     OldFl = process_flag(trap_exit, true),
 
-    ?line ignore = gen_fsm:start(gen_fsm_SUITE, ignore, []),
+    ?line ignore = genie_fsm:start(genie_fsm_SUITE, ignore, []),
 
     test_server:messages_get(),
     process_flag(trap_exit, OldFl),
@@ -142,7 +142,7 @@ start5(suite) -> [];
 start5(Config) when is_list(Config) ->
     OldFl = process_flag(trap_exit, true),
 
-    ?line {error, stopped} = gen_fsm:start(gen_fsm_SUITE, stop, []),
+    ?line {error, stopped} = genie_fsm:start(genie_fsm_SUITE, stop, []),
 
     test_server:messages_get(),
     process_flag(trap_exit, OldFl),
@@ -150,7 +150,7 @@ start5(Config) when is_list(Config) ->
 
 %% anonymous linked
 start6(Config) when is_list(Config) ->
-    ?line {ok, Pid} = gen_fsm:start_link(gen_fsm_SUITE, [], []),
+    ?line {ok, Pid} = genie_fsm:start_link(genie_fsm_SUITE, [], []),
     ?line ok = do_func_test(Pid),
     ?line ok = do_sync_func_test(Pid),
     ?line stop_it(Pid),
@@ -162,11 +162,11 @@ start6(Config) when is_list(Config) ->
 %% global register linked
 start7(Config) when is_list(Config) ->
     ?line {ok, Pid} = 
-	gen_fsm:start_link({global, my_fsm}, gen_fsm_SUITE, [], []),
+	genie_fsm:start_link({global, my_fsm}, genie_fsm_SUITE, [], []),
     ?line {error, {already_started, Pid}} =
-	gen_fsm:start_link({global, my_fsm}, gen_fsm_SUITE, [], []),
+	genie_fsm:start_link({global, my_fsm}, genie_fsm_SUITE, [], []),
     ?line {error, {already_started, Pid}} =
-	gen_fsm:start({global, my_fsm}, gen_fsm_SUITE, [], []),
+	genie_fsm:start({global, my_fsm}, genie_fsm_SUITE, [], []),
     
     ?line ok = do_func_test(Pid),
     ?line ok = do_sync_func_test(Pid),
@@ -183,9 +183,9 @@ start8(Config) when is_list(Config) ->
     %%OldFl = process_flag(trap_exit, true),
 
     ?line {ok, Pid} = 
-	gen_fsm:start({local, my_fsm}, gen_fsm_SUITE, [], []),
+	genie_fsm:start({local, my_fsm}, genie_fsm_SUITE, [], []),
     ?line {error, {already_started, Pid}} =
-	gen_fsm:start({local, my_fsm}, gen_fsm_SUITE, [], []),
+	genie_fsm:start({local, my_fsm}, genie_fsm_SUITE, [], []),
 
     ?line ok = do_func_test(Pid),
     ?line ok = do_sync_func_test(Pid),
@@ -202,9 +202,9 @@ start9(Config) when is_list(Config) ->
     %%OldFl = process_flag(trap_exit, true),
 
     ?line {ok, Pid} = 
-	gen_fsm:start_link({local, my_fsm}, gen_fsm_SUITE, [], []),
+	genie_fsm:start_link({local, my_fsm}, genie_fsm_SUITE, [], []),
     ?line {error, {already_started, Pid}} =
-	gen_fsm:start({local, my_fsm}, gen_fsm_SUITE, [], []),
+	genie_fsm:start({local, my_fsm}, genie_fsm_SUITE, [], []),
 
     ?line ok = do_func_test(Pid),
     ?line ok = do_sync_func_test(Pid),
@@ -219,11 +219,11 @@ start9(Config) when is_list(Config) ->
 %% global register
 start10(Config) when is_list(Config) ->
     ?line {ok, Pid} = 
-	gen_fsm:start({global, my_fsm}, gen_fsm_SUITE, [], []),
+	genie_fsm:start({global, my_fsm}, genie_fsm_SUITE, [], []),
     ?line {error, {already_started, Pid}} =
-	gen_fsm:start({global, my_fsm}, gen_fsm_SUITE, [], []),
+	genie_fsm:start({global, my_fsm}, genie_fsm_SUITE, [], []),
     ?line {error, {already_started, Pid}} =
-	gen_fsm:start_link({global, my_fsm}, gen_fsm_SUITE, [], []),
+	genie_fsm:start_link({global, my_fsm}, genie_fsm_SUITE, [], []),
     
     ?line ok = do_func_test(Pid),
     ?line ok = do_sync_func_test(Pid),
@@ -238,19 +238,19 @@ start10(Config) when is_list(Config) ->
 %% Stop registered processes
 start11(Config) when is_list(Config) ->
     ?line {ok, Pid} = 
-	gen_fsm:start_link({local, my_fsm}, gen_fsm_SUITE, [], []),
+	genie_fsm:start_link({local, my_fsm}, genie_fsm_SUITE, [], []),
     ?line stop_it(Pid),
 
     ?line {ok, _Pid1} = 
-	gen_fsm:start_link({local, my_fsm}, gen_fsm_SUITE, [], []),
+	genie_fsm:start_link({local, my_fsm}, genie_fsm_SUITE, [], []),
     ?line stop_it(my_fsm),
     
     ?line {ok, Pid2} = 
-	gen_fsm:start({global, my_fsm}, gen_fsm_SUITE, [], []),
+	genie_fsm:start({global, my_fsm}, genie_fsm_SUITE, [], []),
     ?line stop_it(Pid2),
     receive after 1 -> true end,
     ?line Result = 
-	gen_fsm:start({global, my_fsm}, gen_fsm_SUITE, [], []),
+	genie_fsm:start({global, my_fsm}, genie_fsm_SUITE, [], []),
     io:format("Result = ~p~n",[Result]),
     ?line {ok, _Pid3} = Result, 
     ?line stop_it({global, my_fsm}),
@@ -262,11 +262,11 @@ start11(Config) when is_list(Config) ->
 start12(Config) when is_list(Config) ->
     ?line dummy_via:reset(),
     ?line {ok, Pid} =
-	gen_fsm:start_link({via, dummy_via, my_fsm}, gen_fsm_SUITE, [], []),
+	genie_fsm:start_link({via, dummy_via, my_fsm}, genie_fsm_SUITE, [], []),
     ?line {error, {already_started, Pid}} =
-	gen_fsm:start_link({via, dummy_via, my_fsm}, gen_fsm_SUITE, [], []),
+	genie_fsm:start_link({via, dummy_via, my_fsm}, genie_fsm_SUITE, [], []),
     ?line {error, {already_started, Pid}} =
-	gen_fsm:start({via, dummy_via, my_fsm}, gen_fsm_SUITE, [], []),
+	genie_fsm:start({via, dummy_via, my_fsm}, genie_fsm_SUITE, [], []),
 
     ?line ok = do_func_test(Pid),
     ?line ok = do_sync_func_test(Pid),
@@ -281,12 +281,12 @@ start12(Config) when is_list(Config) ->
 %% Check that time outs in calls work
 abnormal1(suite) -> [];
 abnormal1(Config) when is_list(Config) ->
-    {ok, _Pid} = gen_fsm:start({local, my_fsm}, gen_fsm_SUITE, [], []),
+    {ok, _Pid} = genie_fsm:start({local, my_fsm}, genie_fsm_SUITE, [], []),
 
     %% timeout call.
-    delayed = gen_fsm:sync_send_event(my_fsm, {delayed_answer,1}, 100),
+    delayed = genie_fsm:sync_send_event(my_fsm, {delayed_answer,1}, 100),
     {'EXIT',{timeout,_}} =
-    (catch gen_fsm:sync_send_event(my_fsm, {delayed_answer,10}, 1)),
+    (catch genie_fsm:sync_send_event(my_fsm, {delayed_answer,10}, 1)),
     test_server:messages_get(),
     ok.
 
@@ -296,11 +296,11 @@ abnormal2(suite) -> [];
 abnormal2(Config) when is_list(Config) ->
     OldFl = process_flag(trap_exit, true),
     ?line {ok, Pid} = 
-	gen_fsm:start_link(gen_fsm_SUITE, [], []),
+	genie_fsm:start_link(genie_fsm_SUITE, [], []),
 
-    %% bad return value in the gen_fsm loop
+    %% bad return value in the genie_fsm loop
     ?line {'EXIT',{{bad_return_value, badreturn},_}} =
-	(catch gen_fsm:sync_send_event(Pid, badreturn)),
+	(catch genie_fsm:sync_send_event(Pid, badreturn)),
     
     test_server:messages_get(),
     process_flag(trap_exit, OldFl),
@@ -311,16 +311,16 @@ shutdown(Config) when is_list(Config) ->
 
     process_flag(trap_exit, true),
 
-    ?line {ok,Pid0} = gen_fsm:start_link(gen_fsm_SUITE, [], []),
+    ?line {ok,Pid0} = genie_fsm:start_link(genie_fsm_SUITE, [], []),
     ?line ok = do_func_test(Pid0),
     ?line ok = do_sync_func_test(Pid0),
     ?line {shutdown,reason} = 
-	gen_fsm:sync_send_all_state_event(Pid0, stop_shutdown_reason),
+	genie_fsm:sync_send_all_state_event(Pid0, stop_shutdown_reason),
     receive {'EXIT',Pid0,{shutdown,reason}} -> ok end,
     process_flag(trap_exit, false),
 
     ?line {'EXIT', {noproc,_}} = 
-	(catch gen_fsm:sync_send_event(Pid0, hej)),
+	(catch genie_fsm:sync_send_event(Pid0, hej)),
 
     receive
 	Any ->
@@ -336,16 +336,16 @@ shutdown(Config) when is_list(Config) ->
 
 sys1(Config) when is_list(Config) ->
     ?line {ok, Pid} = 
-	gen_fsm:start(gen_fsm_SUITE, [], []),
-    ?line {status, Pid, {module,gen_fsm}, _} = sys:get_status(Pid),
+	genie_fsm:start(genie_fsm_SUITE, [], []),
+    ?line {status, Pid, {module,genie_fsm}, _} = sys:get_status(Pid),
     ?line sys:suspend(Pid),
     ?line {'EXIT', {timeout,_}} = 
-	(catch gen_fsm:sync_send_event(Pid, hej)),
+	(catch genie_fsm:sync_send_event(Pid, hej)),
     ?line sys:resume(Pid),
     ?line stop_it(Pid).
 
 call_format_status(Config) when is_list(Config) ->
-    ?line {ok, Pid} = gen_fsm:start(gen_fsm_SUITE, [], []),
+    ?line {ok, Pid} = genie_fsm:start(genie_fsm_SUITE, [], []),
     ?line Status = sys:get_status(Pid),
     ?line {status, Pid, _Mod, [_PDict, running, _, _, Data]} = Status,
     ?line [format_status_called | _] = lists:reverse(Data),
@@ -353,7 +353,7 @@ call_format_status(Config) when is_list(Config) ->
 
     %% check that format_status can handle a name being an atom (pid is
     %% already checked by the previous test)
-    ?line {ok, Pid2} = gen_fsm:start({local, gfsm}, gen_fsm_SUITE, [], []),
+    ?line {ok, Pid2} = genie_fsm:start({local, gfsm}, genie_fsm_SUITE, [], []),
     ?line Status2 = sys:get_status(gfsm),
     ?line {status, Pid2, _Mod, [_PDict2, running, _, _, Data2]} = Status2,
     ?line [format_status_called | _] = lists:reverse(Data2),
@@ -362,13 +362,13 @@ call_format_status(Config) when is_list(Config) ->
     %% check that format_status can handle a name being a term other than a
     %% pid or atom
     GlobalName1 = {global, "CallFormatStatus"},
-    ?line {ok, Pid3} = gen_fsm:start(GlobalName1, gen_fsm_SUITE, [], []),
+    ?line {ok, Pid3} = genie_fsm:start(GlobalName1, genie_fsm_SUITE, [], []),
     ?line Status3 = sys:get_status(GlobalName1),
     ?line {status, Pid3, _Mod, [_PDict3, running, _, _, Data3]} = Status3,
     ?line [format_status_called | _] = lists:reverse(Data3),
     ?line stop_it(Pid3),
     GlobalName2 = {global, {name, "term"}},
-    ?line {ok, Pid4} = gen_fsm:start(GlobalName2, gen_fsm_SUITE, [], []),
+    ?line {ok, Pid4} = genie_fsm:start(GlobalName2, genie_fsm_SUITE, [], []),
     ?line Status4 = sys:get_status(GlobalName2),
     ?line {status, Pid4, _Mod, [_PDict4, running, _, _, Data4]} = Status4,
     ?line [format_status_called | _] = lists:reverse(Data4),
@@ -378,13 +378,13 @@ call_format_status(Config) when is_list(Config) ->
     %% pid or atom
     ?line dummy_via:reset(),
     ViaName1 = {via, dummy_via, "CallFormatStatus"},
-    ?line {ok, Pid5} = gen_fsm:start(ViaName1, gen_fsm_SUITE, [], []),
+    ?line {ok, Pid5} = genie_fsm:start(ViaName1, genie_fsm_SUITE, [], []),
     ?line Status5 = sys:get_status(ViaName1),
     ?line {status, Pid5, _Mod, [_PDict5, running, _, _, Data5]} = Status5,
     ?line [format_status_called | _] = lists:reverse(Data5),
     ?line stop_it(Pid5),
     ViaName2 = {via, dummy_via, {name, "term"}},
-    ?line {ok, Pid6} = gen_fsm:start(ViaName2, gen_fsm_SUITE, [], []),
+    ?line {ok, Pid6} = genie_fsm:start(ViaName2, genie_fsm_SUITE, [], []),
     ?line Status6 = sys:get_status(ViaName2),
     ?line {status, Pid6, _Mod, [_PDict6, running, _, _, Data6]} = Status6,
     ?line [format_status_called | _] = lists:reverse(Data6),
@@ -396,10 +396,10 @@ error_format_status(Config) when is_list(Config) ->
     ?line error_logger_forwarder:register(),
     OldFl = process_flag(trap_exit, true),
     StateData = "called format_status",
-    ?line {ok, Pid} = gen_fsm:start(gen_fsm_SUITE, {state_data, StateData}, []),
-    %% bad return value in the gen_fsm loop
+    ?line {ok, Pid} = genie_fsm:start(genie_fsm_SUITE, {state_data, StateData}, []),
+    %% bad return value in the genie_fsm loop
     ?line {'EXIT',{{bad_return_value, badreturn},_}} =
-	(catch gen_fsm:sync_send_event(Pid, badreturn)),
+	(catch genie_fsm:sync_send_event(Pid, badreturn)),
     receive
 	{error,_GroupLeader,{Pid,
 			     "** State machine"++_,
@@ -415,14 +415,14 @@ error_format_status(Config) when is_list(Config) ->
 
 get_state(Config) when is_list(Config) ->
     State = self(),
-    {ok, Pid} = gen_fsm:start(?MODULE, {state_data, State}, []),
+    {ok, Pid} = genie_fsm:start(?MODULE, {state_data, State}, []),
     {idle, State} = sys:get_state(Pid),
     {idle, State} = sys:get_state(Pid, 5000),
     stop_it(Pid),
 
     %% check that get_state can handle a name being an atom (pid is
     %% already checked by the previous test)
-    {ok, Pid2} = gen_fsm:start({local, gfsm}, gen_fsm_SUITE, {state_data, State}, []),
+    {ok, Pid2} = genie_fsm:start({local, gfsm}, genie_fsm_SUITE, {state_data, State}, []),
     {idle, State} = sys:get_state(gfsm),
     {idle, State} = sys:get_state(gfsm, 5000),
     stop_it(Pid2),
@@ -430,7 +430,7 @@ get_state(Config) when is_list(Config) ->
 
 replace_state(Config) when is_list(Config) ->
     State = self(),
-    {ok, Pid} = gen_fsm:start(?MODULE, {state_data, State}, []),
+    {ok, Pid} = genie_fsm:start(?MODULE, {state_data, State}, []),
     {idle, State} = sys:get_state(Pid),
     NState1 = "replaced",
     Replace1 = fun({StateName, _}) -> {StateName, NState1} end,
@@ -452,7 +452,7 @@ hibernate(suite) -> [];
 hibernate(Config) when is_list(Config) ->
     OldFl = process_flag(trap_exit, true),
 
-    ?line {ok, Pid0} = gen_fsm:start_link(?MODULE, hiber_now, []),
+    ?line {ok, Pid0} = genie_fsm:start_link(?MODULE, hiber_now, []),
     ?line receive after 1000 -> ok end,
     ?line {current_function,{erlang,hibernate,3}} = 
 	erlang:process_info(Pid0,current_function),
@@ -460,95 +460,95 @@ hibernate(Config) when is_list(Config) ->
     test_server:messages_get(),
 
 
-    ?line {ok, Pid} = gen_fsm:start_link(?MODULE, hiber, []),
+    ?line {ok, Pid} = genie_fsm:start_link(?MODULE, hiber, []),
     ?line true = ({current_function,{erlang,hibernate,3}} =/= erlang:process_info(Pid,current_function)),
-    ?line hibernating = gen_fsm:sync_send_event(Pid,hibernate_sync),
+    ?line hibernating = genie_fsm:sync_send_event(Pid,hibernate_sync),
     ?line receive after 1000 -> ok end,
     ?line {current_function,{erlang,hibernate,3}} = 
 	erlang:process_info(Pid,current_function),
-    ?line good_morning  = gen_fsm:sync_send_event(Pid,wakeup_sync),
-    ?line receive after 1000 -> ok end,
-    ?line true = ({current_function,{erlang,hibernate,3}} =/= erlang:process_info(Pid,current_function)),
-    ?line hibernating = gen_fsm:sync_send_event(Pid,hibernate_sync),
-    ?line receive after 1000 -> ok end,
-    ?line {current_function,{erlang,hibernate,3}} = 
-	erlang:process_info(Pid,current_function),
-    ?line five_more  = gen_fsm:sync_send_event(Pid,snooze_sync),
-    ?line receive after 1000 -> ok end,
-    ?line {current_function,{erlang,hibernate,3}} = 
-	erlang:process_info(Pid,current_function),
-    ?line good_morning  = gen_fsm:sync_send_event(Pid,wakeup_sync),
+    ?line good_morning  = genie_fsm:sync_send_event(Pid,wakeup_sync),
     ?line receive after 1000 -> ok end,
     ?line true = ({current_function,{erlang,hibernate,3}} =/= erlang:process_info(Pid,current_function)),
-    ?line ok = gen_fsm:send_event(Pid,hibernate_async),
+    ?line hibernating = genie_fsm:sync_send_event(Pid,hibernate_sync),
     ?line receive after 1000 -> ok end,
     ?line {current_function,{erlang,hibernate,3}} = 
 	erlang:process_info(Pid,current_function),
-    ?line ok  = gen_fsm:send_event(Pid,wakeup_async),
+    ?line five_more  = genie_fsm:sync_send_event(Pid,snooze_sync),
+    ?line receive after 1000 -> ok end,
+    ?line {current_function,{erlang,hibernate,3}} = 
+	erlang:process_info(Pid,current_function),
+    ?line good_morning  = genie_fsm:sync_send_event(Pid,wakeup_sync),
     ?line receive after 1000 -> ok end,
     ?line true = ({current_function,{erlang,hibernate,3}} =/= erlang:process_info(Pid,current_function)),
-    ?line ok = gen_fsm:send_event(Pid,hibernate_async),
+    ?line ok = genie_fsm:send_event(Pid,hibernate_async),
     ?line receive after 1000 -> ok end,
     ?line {current_function,{erlang,hibernate,3}} = 
 	erlang:process_info(Pid,current_function),
-    ?line ok  = gen_fsm:send_event(Pid,snooze_async),
+    ?line ok  = genie_fsm:send_event(Pid,wakeup_async),
+    ?line receive after 1000 -> ok end,
+    ?line true = ({current_function,{erlang,hibernate,3}} =/= erlang:process_info(Pid,current_function)),
+    ?line ok = genie_fsm:send_event(Pid,hibernate_async),
     ?line receive after 1000 -> ok end,
     ?line {current_function,{erlang,hibernate,3}} = 
 	erlang:process_info(Pid,current_function),
-    ?line ok = gen_fsm:send_event(Pid,wakeup_async),
+    ?line ok  = genie_fsm:send_event(Pid,snooze_async),
+    ?line receive after 1000 -> ok end,
+    ?line {current_function,{erlang,hibernate,3}} = 
+	erlang:process_info(Pid,current_function),
+    ?line ok = genie_fsm:send_event(Pid,wakeup_async),
     ?line receive after 1000 -> ok end,
     ?line true = ({current_function,{erlang,hibernate,3}} =/= erlang:process_info(Pid,current_function)),
     ?line Pid ! hibernate_later,
     ?line true = ({current_function,{erlang,hibernate,3}} =/= erlang:process_info(Pid,current_function)),
     ?line receive after 2000 -> ok end,
     ?line ({current_function,{erlang,hibernate,3}} = erlang:process_info(Pid,current_function)),
-    ?line 'alive!' = gen_fsm:sync_send_event(Pid,'alive?'),
+    ?line 'alive!' = genie_fsm:sync_send_event(Pid,'alive?'),
     ?line true = ({current_function,{erlang,hibernate,3}} =/= erlang:process_info(Pid,current_function)),
     ?line Pid ! hibernate_now,
     ?line receive after 1000 -> ok end,
     ?line ({current_function,{erlang,hibernate,3}} = erlang:process_info(Pid,current_function)),
-    ?line 'alive!' = gen_fsm:sync_send_event(Pid,'alive?'),
+    ?line 'alive!' = genie_fsm:sync_send_event(Pid,'alive?'),
     ?line true = ({current_function,{erlang,hibernate,3}} =/= erlang:process_info(Pid,current_function)),
     
 
-    ?line hibernating = gen_fsm:sync_send_all_state_event(Pid,hibernate_sync),
+    ?line hibernating = genie_fsm:sync_send_all_state_event(Pid,hibernate_sync),
     ?line receive after 1000 -> ok end,
     ?line {current_function,{erlang,hibernate,3}} = 
 	erlang:process_info(Pid,current_function),
-    ?line good_morning  = gen_fsm:sync_send_all_state_event(Pid,wakeup_sync),
+    ?line good_morning  = genie_fsm:sync_send_all_state_event(Pid,wakeup_sync),
     ?line receive after 1000 -> ok end,
     ?line true = ({current_function,{erlang,hibernate,3}} =/= erlang:process_info(Pid,current_function)),
-    ?line hibernating = gen_fsm:sync_send_all_state_event(Pid,hibernate_sync),
+    ?line hibernating = genie_fsm:sync_send_all_state_event(Pid,hibernate_sync),
     ?line receive after 1000 -> ok end,
     ?line {current_function,{erlang,hibernate,3}} = 
 	erlang:process_info(Pid,current_function),
-    ?line five_more  = gen_fsm:sync_send_all_state_event(Pid,snooze_sync),
+    ?line five_more  = genie_fsm:sync_send_all_state_event(Pid,snooze_sync),
     ?line receive after 1000 -> ok end,
     ?line {current_function,{erlang,hibernate,3}} = 
 	erlang:process_info(Pid,current_function),
-    ?line good_morning  = gen_fsm:sync_send_all_state_event(Pid,wakeup_sync),
+    ?line good_morning  = genie_fsm:sync_send_all_state_event(Pid,wakeup_sync),
     ?line receive after 1000 -> ok end,
     ?line true = ({current_function,{erlang,hibernate,3}} =/= erlang:process_info(Pid,current_function)),
-    ?line ok = gen_fsm:send_all_state_event(Pid,hibernate_async),
+    ?line ok = genie_fsm:send_all_state_event(Pid,hibernate_async),
     ?line receive after 1000 -> ok end,
     ?line {current_function,{erlang,hibernate,3}} = 
 	erlang:process_info(Pid,current_function),
-    ?line ok  = gen_fsm:send_all_state_event(Pid,wakeup_async),
+    ?line ok  = genie_fsm:send_all_state_event(Pid,wakeup_async),
     ?line receive after 1000 -> ok end,
     ?line true = ({current_function,{erlang,hibernate,3}} =/= erlang:process_info(Pid,current_function)),
-    ?line ok = gen_fsm:send_all_state_event(Pid,hibernate_async),
+    ?line ok = genie_fsm:send_all_state_event(Pid,hibernate_async),
     ?line receive after 1000 -> ok end,
     ?line {current_function,{erlang,hibernate,3}} = 
 	erlang:process_info(Pid,current_function),
-    ?line ok  = gen_fsm:send_all_state_event(Pid,snooze_async),
+    ?line ok  = genie_fsm:send_all_state_event(Pid,snooze_async),
     ?line receive after 1000 -> ok end,
     ?line {current_function,{erlang,hibernate,3}} = 
 	erlang:process_info(Pid,current_function),
-    ?line ok = gen_fsm:send_all_state_event(Pid,wakeup_async),
+    ?line ok = genie_fsm:send_all_state_event(Pid,wakeup_async),
     ?line receive after 1000 -> ok end,
     ?line true = ({current_function,{erlang,hibernate,3}} =/= erlang:process_info(Pid,current_function)),
 
-    ?line hibernating = gen_fsm:sync_send_all_state_event(Pid,hibernate_sync),
+    ?line hibernating = genie_fsm:sync_send_all_state_event(Pid,hibernate_sync),
     ?line receive after 1000 -> ok end,
     ?line {current_function,{erlang,hibernate,3}} = 
 	erlang:process_info(Pid,current_function),
@@ -562,7 +562,7 @@ hibernate(Config) when is_list(Config) ->
     ?line receive after 1000 -> ok end,
     ?line {current_function,{erlang,hibernate,3}} = 
 	erlang:process_info(Pid,current_function),
-    ?line good_morning  = gen_fsm:sync_send_all_state_event(Pid,wakeup_sync),
+    ?line good_morning  = genie_fsm:sync_send_all_state_event(Pid,wakeup_sync),
     ?line receive after 1000 -> ok end,
     ?line true = ({current_function,{erlang,hibernate,3}} =/= erlang:process_info(Pid,current_function)),
     ?line stop_it(Pid),
@@ -578,7 +578,7 @@ hibernate(Config) when is_list(Config) ->
 enter_loop(suite) ->
     [];
 enter_loop(doc) ->
-    ["Test gen_fsm:enter_loop/4,5,6"];
+    ["Test genie_fsm:enter_loop/4,5,6"];
 enter_loop(Config) when is_list(Config) ->
     OldFlag = process_flag(trap_exit, true),
 
@@ -587,13 +587,13 @@ enter_loop(Config) when is_list(Config) ->
     %% Locally registered process + {local, Name}
     ?line {ok, Pid1a} =
 	proc_lib:start_link(?MODULE, enter_loop, [local, local]),
-    ?line yes = gen_fsm:sync_send_event(Pid1a, 'alive?'),
-    ?line stopped = gen_fsm:sync_send_event(Pid1a, stop),
+    ?line yes = genie_fsm:sync_send_event(Pid1a, 'alive?'),
+    ?line stopped = genie_fsm:sync_send_event(Pid1a, stop),
     receive
 	{'EXIT', Pid1a, normal} ->
 	    ok
     after 5000 ->
-	    ?line test_server:fail(gen_fsm_did_not_die)
+	    ?line test_server:fail(genie_fsm_did_not_die)
     end,
 
     %% Unregistered process + {local, Name}
@@ -603,19 +603,19 @@ enter_loop(Config) when is_list(Config) ->
 	{'EXIT', Pid1b, process_not_registered} ->
 	    ok
     after 5000 ->
-	    ?line test_server:fail(gen_fsm_did_not_die)
+	    ?line test_server:fail(genie_fsm_did_not_die)
     end,
 
     %% Globally registered process + {global, Name}
     ?line {ok, Pid2a} =
 	proc_lib:start_link(?MODULE, enter_loop, [global, global]),
-    ?line yes = gen_fsm:sync_send_event(Pid2a, 'alive?'),
-    ?line stopped = gen_fsm:sync_send_event(Pid2a, stop),
+    ?line yes = genie_fsm:sync_send_event(Pid2a, 'alive?'),
+    ?line stopped = genie_fsm:sync_send_event(Pid2a, stop),
     receive
 	{'EXIT', Pid2a, normal} ->
 	    ok
     after 5000 ->
-	    ?line test_server:fail(gen_fsm_did_not_die)
+	    ?line test_server:fail(genie_fsm_did_not_die)
     end,
 
     %% Unregistered process + {global, Name}
@@ -625,45 +625,45 @@ enter_loop(Config) when is_list(Config) ->
 	{'EXIT', Pid2b, process_not_registered_globally} ->
 	    ok
     after 5000 ->
-	    ?line test_server:fail(gen_fsm_did_not_die)
+	    ?line test_server:fail(genie_fsm_did_not_die)
     end,
 
     %% Unregistered process + no name
     ?line {ok, Pid3} =
 	proc_lib:start_link(?MODULE, enter_loop, [anon, anon]),
-    ?line yes = gen_fsm:sync_send_event(Pid3, 'alive?'),
-    ?line stopped = gen_fsm:sync_send_event(Pid3, stop),
+    ?line yes = genie_fsm:sync_send_event(Pid3, 'alive?'),
+    ?line stopped = genie_fsm:sync_send_event(Pid3, stop),
     receive
 	{'EXIT', Pid3, normal} ->
 	    ok
     after 5000 ->
-	    ?line test_server:fail(gen_fsm_did_not_die)
+	    ?line test_server:fail(genie_fsm_did_not_die)
     end,
 
     %% Process not started using proc_lib
     ?line Pid4 =
-	spawn_link(gen_fsm, enter_loop, [?MODULE, [], state0, []]),
+	spawn_link(genie_fsm, enter_loop, [?MODULE, [], state0, []]),
     receive
 	{'EXIT', Pid4, process_was_not_started_by_proc_lib} ->
 	    ok
     after 5000 ->
-	    ?line test_server:fail(gen_fsm_did_not_die)
+	    ?line test_server:fail(genie_fsm_did_not_die)
     end,
 
     %% Make sure I am the parent, ie that ordering a shutdown will
     %% result in the process terminating with Reason==shutdown
     ?line {ok, Pid5} =
 	proc_lib:start_link(?MODULE, enter_loop, [anon, anon]),
-    ?line yes = gen_fsm:sync_send_event(Pid5, 'alive?'),
+    ?line yes = genie_fsm:sync_send_event(Pid5, 'alive?'),
     ?line exit(Pid5, shutdown),
     receive
 	{'EXIT', Pid5, shutdown} ->
 	    ok
     after 5000 ->
-	    ?line test_server:fail(gen_fsm_did_not_die)
+	    ?line test_server:fail(genie_fsm_did_not_die)
     end,
 
-    %% Make sure gen_fsm:enter_loop does not accept {local,Name}
+    %% Make sure genie_fsm:enter_loop does not accept {local,Name}
     %% when it's another process than the calling one which is
     %% registered under that name
     register(armitage, self()),
@@ -673,11 +673,11 @@ enter_loop(Config) when is_list(Config) ->
 	{'EXIT', Pid6a, process_not_registered} ->
 	    ok
     after 1000 ->
-	    ?line test_server:fail(gen_fsm_started)
+	    ?line test_server:fail(genie_fsm_started)
     end,
     unregister(armitage),
 
-    %% Make sure gen_fsm:enter_loop does not accept {global,Name}
+    %% Make sure genie_fsm:enter_loop does not accept {global,Name}
     %% when it's another process than the calling one which is
     %% registered under that name
     global:register_name(armitage, self()),
@@ -687,7 +687,7 @@ enter_loop(Config) when is_list(Config) ->
 	{'EXIT', Pid6b, process_not_registered_globally} ->
 	    ok
     after 1000 ->
-	    ?line test_server:fail(gen_fsm_started)
+	    ?line test_server:fail(genie_fsm_started)
     end,
     global:unregister_name(armitage),
 
@@ -698,7 +698,7 @@ enter_loop(Config) when is_list(Config) ->
 	{'EXIT', Pid6c, {process_not_registered_via, dummy_via}} ->
 	    ok
     after 1000 ->
-	    ?line test_server:fail({gen_fsm_started, process_info(self(),
+	    ?line test_server:fail({genie_fsm_started, process_info(self(),
 								 messages)})
     end,
     dummy_via:unregister_name(armitage),
@@ -717,14 +717,14 @@ enter_loop(Reg1, Reg2) ->
     proc_lib:init_ack({ok, self()}),
     case Reg2 of
 	local ->
-	    gen_fsm:enter_loop(?MODULE, [], state0, [], {local,armitage});
+	    genie_fsm:enter_loop(?MODULE, [], state0, [], {local,armitage});
 	global ->
-	    gen_fsm:enter_loop(?MODULE, [], state0, [], {global,armitage});
+	    genie_fsm:enter_loop(?MODULE, [], state0, [], {global,armitage});
 	via ->
-	    gen_fsm:enter_loop(?MODULE, [], state0, [],
+	    genie_fsm:enter_loop(?MODULE, [], state0, [],
 			       {via, dummy_via, armitage});
 	anon ->
-	    gen_fsm:enter_loop(?MODULE, [], state0, [])
+	    genie_fsm:enter_loop(?MODULE, [], state0, [])
     end.
 
 %%
@@ -740,85 +740,85 @@ wfor(Msg) ->
 
 
 stop_it(FSM) ->
-    ?line stopped = gen_fsm:sync_send_all_state_event(FSM, stop),
-    ?line {'EXIT',_} = 	(catch gen_fsm:sync_send_event(FSM, hej)),
+    ?line stopped = genie_fsm:sync_send_all_state_event(FSM, stop),
+    ?line {'EXIT',_} = 	(catch genie_fsm:sync_send_event(FSM, hej)),
     ok.
 
 
 
 do_func_test(FSM) ->
-    ok = gen_fsm:send_all_state_event(FSM, {'alive?', self()}),
+    ok = genie_fsm:send_all_state_event(FSM, {'alive?', self()}),
     wfor(yes),
     ok = do_connect(FSM),
-    ok = gen_fsm:send_all_state_event(FSM, {'alive?', self()}),
+    ok = genie_fsm:send_all_state_event(FSM, {'alive?', self()}),
     wfor(yes),
     test_server:do_times(3, ?MODULE, do_msg, [FSM]),
-    ok = gen_fsm:send_all_state_event(FSM, {'alive?', self()}),
+    ok = genie_fsm:send_all_state_event(FSM, {'alive?', self()}),
     wfor(yes),
     ok = do_disconnect(FSM),
-    ok = gen_fsm:send_all_state_event(FSM, {'alive?', self()}),
+    ok = genie_fsm:send_all_state_event(FSM, {'alive?', self()}),
     wfor(yes),
     ok.
 
 
 do_connect(FSM) ->
     check_state(FSM, idle),
-    gen_fsm:send_event(FSM, {connect, self()}),
+    genie_fsm:send_event(FSM, {connect, self()}),
     wfor(accept),
     check_state(FSM, wfor_conf),
-    gen_fsm:send_event(FSM, confirmation),
+    genie_fsm:send_event(FSM, confirmation),
     check_state(FSM, connected),
     ok.
 
 do_msg(FSM) ->
     check_state(FSM, connected),
     R = make_ref(),
-    ok = gen_fsm:send_event(FSM, {msg, R, self(), hej_pa_dig_quasimodo}),
+    ok = genie_fsm:send_event(FSM, {msg, R, self(), hej_pa_dig_quasimodo}),
     wfor({ak, R}).
 
 
 do_disconnect(FSM) ->
-    ok = gen_fsm:send_event(FSM, disconnect),
+    ok = genie_fsm:send_event(FSM, disconnect),
     check_state(FSM, idle).
 
 check_state(FSM, State) ->
-    case gen_fsm:sync_send_all_state_event(FSM, {get, self()}) of
+    case genie_fsm:sync_send_all_state_event(FSM, {get, self()}) of
 	{state, State, _} -> ok
     end.
 
 do_sync_func_test(FSM) ->
-    yes = gen_fsm:sync_send_all_state_event(FSM, 'alive?'),
+    yes = genie_fsm:sync_send_all_state_event(FSM, 'alive?'),
     ok = do_sync_connect(FSM),
-    yes = gen_fsm:sync_send_all_state_event(FSM, 'alive?'),
+    yes = genie_fsm:sync_send_all_state_event(FSM, 'alive?'),
     test_server:do_times(3, ?MODULE, do_sync_msg, [FSM]),
-    yes = gen_fsm:sync_send_all_state_event(FSM, 'alive?'),
+    yes = genie_fsm:sync_send_all_state_event(FSM, 'alive?'),
     ok = do_sync_disconnect(FSM),
-    yes = gen_fsm:sync_send_all_state_event(FSM, 'alive?'),
+    yes = genie_fsm:sync_send_all_state_event(FSM, 'alive?'),
     check_state(FSM, idle),
-    ok = gen_fsm:sync_send_event(FSM, {timeout,200}),
-    yes = gen_fsm:sync_send_all_state_event(FSM, 'alive?'),
+    ok = genie_fsm:sync_send_event(FSM, {timeout,200}),
+    yes = genie_fsm:sync_send_all_state_event(FSM, 'alive?'),
     check_state(FSM, idle),
     ok.
 
 
 do_sync_connect(FSM) ->
     check_state(FSM, idle),
-    accept = gen_fsm:sync_send_event(FSM, {connect, self()}),
+    accept = genie_fsm:sync_send_event(FSM, {connect, self()}),
     check_state(FSM, wfor_conf),
-    yes = gen_fsm:sync_send_event(FSM, confirmation),
+    yes = genie_fsm:sync_send_event(FSM, confirmation),
     check_state(FSM, connected),
     ok.
 
 do_sync_msg(FSM) ->
     check_state(FSM, connected),
     R = make_ref(),
-    Res = gen_fsm:sync_send_event(FSM, {msg, R, self(), hej_pa_dig_quasimodo}),
+    Res = genie_fsm:sync_send_event(FSM, {msg, R, self(), hej_pa_dig_quasimodo}),
     if  Res == {ak, R} ->
 	    ok
     end.
 
 do_sync_disconnect(FSM) ->
-    yes = gen_fsm:sync_send_event(FSM, disconnect),
+    yes = genie_fsm:sync_send_event(FSM, disconnect),
     check_state(FSM, idle).
 
     
@@ -873,23 +873,23 @@ idle({delayed_answer, T}, _From, Data) ->
 idle(badreturn, _From, _Data) ->
     badreturn;
 idle({timeout,Time}, From, _Data) ->
-    gen_fsm:send_event_after(Time, {timeout,Time}),
+    genie_fsm:send_event_after(Time, {timeout,Time}),
     {next_state, timeout, From};
 idle(_, _From, Data) ->
     {reply, 'eh?', idle, Data}.
 
 timeout({timeout,Time}, From) ->
-    Ref = gen_fsm:start_timer(Time, {timeout,Time}),
+    Ref = genie_fsm:start_timer(Time, {timeout,Time}),
     {next_state, timeout, {From,Ref}};
 timeout({timeout,Ref,{timeout,Time}}, {From,Ref}) ->
-    Ref2 = gen_fsm:start_timer(Time, ok),
-    Cref = gen_fsm:start_timer(Time, cancel),
+    Ref2 = genie_fsm:start_timer(Time, ok),
+    Cref = genie_fsm:start_timer(Time, cancel),
     Time4 = Time*4,
     receive after Time4 -> ok end,
-    gen_fsm:cancel_timer(Cref),
+    genie_fsm:cancel_timer(Cref),
     {next_state, timeout, {From,Ref2}};
 timeout({timeout,Ref2,ok},{From,Ref2}) ->
-    gen_fsm:reply(From, ok),
+    genie_fsm:reply(From, ok),
     {next_state, idle, state}.
 
 wfor_conf(confirmation, Data) ->
