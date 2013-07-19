@@ -21,35 +21,35 @@
 
     </legalnotice>
 
-    <title>gen_server</title>
+    <title>genie_server</title>
     <prepared></prepared>
     <docno></docno>
     <date></date>
     <rev></rev>
   </header>
-  <module>gen_server</module>
+  <module>genie_server</module>
   <modulesummary>Generic Server Behaviour</modulesummary>
   <description>
     <p>A behaviour module for implementing the server of a client-server
-      relation. A generic server process (gen_server) implemented using
+      relation. A generic server process (genie_server) implemented using
       this module will have a standard set of interface functions and
       include functionality for tracing and error reporting. It will
       also fit into an OTP supervision tree. Refer to
-      <seealso marker="doc/design_principles:gen_server_concepts">OTP Design Principles</seealso> for more information.</p>
-    <p>A gen_server assumes all specific parts to be located in a
+      <seealso marker="doc/design_principles:genie_server_concepts">OTP Design Principles</seealso> for more information.</p>
+    <p>A genie_server assumes all specific parts to be located in a
       callback module exporting a pre-defined set of functions.
       The relationship between the behaviour functions and the callback
       functions can be illustrated as follows:</p>
     <pre>
-gen_server module            Callback module
+genie_server module            Callback module
 -----------------            ---------------
-gen_server:start_link -----> Module:init/1
+genie_server:start_link -----> Module:init/1
 
-gen_server:call
-gen_server:multi_call -----> Module:handle_call/3
+genie_server:call
+genie_server:multi_call -----> Module:handle_call/3
 
-gen_server:cast
-gen_server:abcast     -----> Module:handle_cast/2
+genie_server:cast
+genie_server:abcast     -----> Module:handle_cast/2
 
 -                     -----> Module:handle_info/2
 
@@ -57,17 +57,17 @@ gen_server:abcast     -----> Module:handle_cast/2
 
 -                     -----> Module:code_change/3    </pre>
     <p>If a callback function fails or returns a bad value,
-      the gen_server will terminate.</p>
-    <p>A gen_server handles system messages as documented in
+      the genie_server will terminate.</p>
+    <p>A genie_server handles system messages as documented in
        <seealso marker="sys">sys(3)</seealso>. The <c>sys</c> module
-       can be used for debugging a gen_server.</p>
-    <p>Note that a gen_server does not trap exit signals automatically,
+       can be used for debugging a genie_server.</p>
+    <p>Note that a genie_server does not trap exit signals automatically,
       this must be explicitly initiated in the callback module.</p>
     <p>Unless otherwise stated, all functions in this module fail if
-      the specified gen_server does not exist or if bad arguments are
+      the specified genie_server does not exist or if bad arguments are
       given.</p>
 
-    <p>The gen_server process can go into hibernation 
+    <p>The genie_server process can go into hibernation 
     (see <seealso marker="erts:erlang#erlang:hibernate/3">erlang(3)</seealso>) if a callback
     function specifies <c>'hibernate'</c> instead of a timeout value. This
     might be useful if the server is expected to be idle for a long
@@ -81,7 +81,7 @@ gen_server:abcast     -----> Module:handle_cast/2
     <func>
       <name>start_link(Module, Args, Options) -> Result</name>
       <name>start_link(ServerName, Module, Args, Options) -> Result</name>
-      <fsummary>Create a gen_server process in a supervision tree.</fsummary>
+      <fsummary>Create a genie_server process in a supervision tree.</fsummary>
       <type>
         <v>ServerName = {local,Name} | {global,GlobalName}
 	| {via,Module,ViaName}</v>
@@ -99,20 +99,20 @@ gen_server:abcast     -----> Module:handle_cast/2
         <v>&nbsp;Error = {already_started,Pid} | term()</v>
       </type>
       <desc>
-        <p>Creates a gen_server process as part of a supervision tree.
+        <p>Creates a genie_server process as part of a supervision tree.
           The function should be called, directly or indirectly, by
           the supervisor. It will, among other things, ensure that
-          the gen_server is linked to the supervisor.</p>
-        <p>The gen_server process calls <c>Module:init/1</c> to
+          the genie_server is linked to the supervisor.</p>
+        <p>The genie_server process calls <c>Module:init/1</c> to
           initialize. To ensure a synchronized start-up procedure,
           <c>start_link/3,4</c> does not return until
           <c>Module:init/1</c> has returned.</p>
-        <p>If <c>ServerName={local,Name}</c> the gen_server is
+        <p>If <c>ServerName={local,Name}</c> the genie_server is
           registered locally as <c>Name</c> using <c>register/2</c>.
-          If <c>ServerName={global,GlobalName}</c> the gen_server is
+          If <c>ServerName={global,GlobalName}</c> the genie_server is
           registered globally as <c>GlobalName</c> using
           <c>global:register_name/2</c>. If no name is provided,
-          the gen_server is not registered.
+          the genie_server is not registered.
 	  If <c>EventMgrName={via,Module,ViaName}</c>, the event manager will
 	  register with the registry represented by <c>Module</c>.
 	  The <c>Module</c> callback should export the functions
@@ -124,7 +124,7 @@ gen_server:abcast     -----> Module:handle_cast/2
         <p><c>Args</c> is an arbitrary term which is passed as
           the argument to <c>Module:init/1</c>.</p>
         <p>If the option <c>{timeout,Time}</c> is present,
-          the gen_server is allowed to spend <c>Time</c> milliseconds
+          the genie_server is allowed to spend <c>Time</c> milliseconds
           initializing or it will be terminated and the start function
           will return <c>{error,timeout}</c>.
 	</p>
@@ -135,16 +135,16 @@ gen_server:abcast     -----> Module:handle_cast/2
         <p>If the option <c>{spawn_opt,SOpts}</c> is present,
           <c>SOpts</c> will be passed as option list to
           the <c>spawn_opt</c> BIF which is used to spawn
-          the gen_server. See
+          the genie_server. See
           <seealso marker="erts:erlang#spawn_opt/2">erlang(3)</seealso>.</p>
         <note>
           <p>Using the spawn option <c>monitor</c> is currently not
             allowed, but will cause the function to fail with reason
             <c>badarg</c>.</p>
         </note>
-        <p>If the gen_server is successfully created and initialized
+        <p>If the genie_server is successfully created and initialized
           the function returns <c>{ok,Pid}</c>, where <c>Pid</c> is
-          the pid of the gen_server. If there already exists a process
+          the pid of the genie_server. If there already exists a process
           with the specified <c>ServerName</c> the function returns
           <c>{error,{already_started,Pid}}</c>, where <c>Pid</c> is
           the pid of that process.</p>
@@ -158,7 +158,7 @@ gen_server:abcast     -----> Module:handle_cast/2
     <func>
       <name>start(Module, Args, Options) -> Result</name>
       <name>start(ServerName, Module, Args, Options) -> Result</name>
-      <fsummary>Create a stand-alone gen_server process.</fsummary>
+      <fsummary>Create a stand-alone genie_server process.</fsummary>
       <type>
         <v>ServerName = {local,Name} | {global,GlobalName}
 	| {via,Module,ViaName}</v>
@@ -176,7 +176,7 @@ gen_server:abcast     -----> Module:handle_cast/2
         <v>&nbsp;Error = {already_started,Pid} | term()</v>
       </type>
       <desc>
-        <p>Creates a stand-alone gen_server process, i.e. a gen_server
+        <p>Creates a stand-alone genie_server process, i.e. a gen_server
           which is not part of a supervision tree and thus has no
           supervisor.</p>
         <p>See <seealso marker="#start_link/3">start_link/3,4</seealso>
@@ -197,19 +197,19 @@ gen_server:abcast     -----> Module:handle_cast/2
         <v>Reply = term()</v>
       </type>
       <desc>
-        <p>Makes a synchronous call to the gen_server <c>ServerRef</c>
+        <p>Makes a synchronous call to the genie_server <c>ServerRef</c>
           by sending a request and waiting until a reply arrives or a
-          timeout occurs. The gen_server will call
+          timeout occurs. The genie_server will call
           <c>Module:handle_call/3</c> to handle the request.</p>
         <p><c>ServerRef</c> can be:</p>
         <list type="bulleted">
           <item>the pid,</item>
-          <item><c>Name</c>, if the gen_server is locally registered,</item>
-          <item><c>{Name,Node}</c>, if the gen_server is locally
+          <item><c>Name</c>, if the genie_server is locally registered,</item>
+          <item><c>{Name,Node}</c>, if the genie_server is locally
            registered at another node, or</item>
-          <item><c>{global,GlobalName}</c>, if the gen_server is
+          <item><c>{global,GlobalName}</c>, if the genie_server is
            globally registered.</item>
-          <item><c>{via,Module,ViaName}</c>, if the gen_server is
+          <item><c>{via,Module,ViaName}</c>, if the genie_server is
            registered through an alternative process registry.</item>
         </list>
         <p><c>Request</c> is an arbitrary term which is passed as one of
@@ -227,7 +227,7 @@ gen_server:abcast     -----> Module:handle_cast/2
         <p>The return value <c>Reply</c> is defined in the return value
           of <c>Module:handle_call/3</c>.</p>
         <p>The call may fail for several reasons, including timeout and
-          the called gen_server dying before or during the call.</p>
+          the called genie_server dying before or during the call.</p>
         <p>The ancient behaviour of sometimes consuming the server
           exit message if the server died during the call while
           linked to the client has been removed in OTP R12B/Erlang 5.6.</p>
@@ -250,21 +250,21 @@ gen_server:abcast     -----> Module:handle_cast/2
         <v>BadNodes = [Node]</v>
       </type>
       <desc>
-        <p>Makes a synchronous call to all gen_servers locally
+        <p>Makes a synchronous call to all genie_servers locally
           registered as <c>Name</c> at the specified nodes by first
           sending a request to every node and then waiting for
-          the replies. The gen_servers will call
+          the replies. The genie_servers will call
           <c>Module:handle_call/3</c> to handle the request.</p>
         <p>The function returns a tuple <c>{Replies,BadNodes}</c> where
           <c>Replies</c> is a list of <c>{Node,Reply}</c> and
           <c>BadNodes</c> is a list of node that either did not exist,
-          or where the gen_server <c>Name</c> did not exist or did not
+          or where the genie_server <c>Name</c> did not exist or did not
           reply.</p>
         <p><c>Nodes</c> is a list of node names to which the request
           should be sent. Default value is the list of all known nodes
           <c>[node()|nodes()]</c>.</p>
         <p><c>Name</c> is the locally registered name of each
-          gen_server.</p>
+          genie_server.</p>
         <p><c>Request</c> is an arbitrary term which is passed as one of
           the arguments to <c>Module:handle_call/3</c>.</p>
         <p><c>Timeout</c> is an integer greater than zero which
@@ -272,13 +272,13 @@ gen_server:abcast     -----> Module:handle_cast/2
           the atom <c>infinity</c> to wait indefinitely. Default value
           is <c>infinity</c>. If no reply is received from a node within
           the specified time, the node is added to <c>BadNodes</c>.</p>
-        <p>When a reply <c>Reply</c> is received from the gen_server at
+        <p>When a reply <c>Reply</c> is received from the genie_server at
           a node <c>Node</c>, <c>{Node,Reply}</c> is added to
           <c>Replies</c>. <c>Reply</c> is defined in the return value of
           <c>Module:handle_call/3</c>.</p>
         <warning>
           <p>If one of the nodes is not capable of process monitors,
-            for example C or Java nodes, and the gen_server is not started
+            for example C or Java nodes, and the genie_server is not started
              when the requests are sent, but starts within 2 seconds,
              this function waits the whole <c>Timeout</c>,
              which may be infinity.</p>
@@ -301,10 +301,10 @@ gen_server:abcast     -----> Module:handle_cast/2
         <v>Request = term()</v>
       </type>
       <desc>
-        <p>Sends an asynchronous request to the gen_server
+        <p>Sends an asynchronous request to the genie_server
           <c>ServerRef</c> and returns <c>ok</c> immediately, ignoring
-          if the destination node or gen_server does not exist.
-          The gen_server will call <c>Module:handle_cast/2</c> to
+          if the destination node or genie_server does not exist.
+          The genie_server will call <c>Module:handle_cast/2</c> to
           handle the request.</p>
         <p>See <seealso marker="#call/2">call/2,3</seealso> for a
           description of <c>ServerRef</c>.</p>
@@ -323,11 +323,11 @@ gen_server:abcast     -----> Module:handle_cast/2
         <v>Request = term()</v>
       </type>
       <desc>
-        <p>Sends an asynchronous request to the gen_servers locally
+        <p>Sends an asynchronous request to the genie_servers locally
           registered as <c>Name</c> at the specified nodes. The function
           returns immediately and ignores nodes that do not exist, or
-          where the gen_server <c>Name</c> does not exist.
-          The gen_servers will call <c>Module:handle_cast/2</c> to
+          where the genie_server <c>Name</c> does not exist.
+          The genie_servers will call <c>Module:handle_cast/2</c> to
           handle the request.</p>
         <p>See
           <seealso marker="#multi_call/2">multi_call/2,3,4</seealso>
@@ -343,7 +343,7 @@ gen_server:abcast     -----> Module:handle_cast/2
 	<v>Result = term()</v>
       </type>
       <desc>
-        <p>This function can be used by a gen_server to explicitly send
+        <p>This function can be used by a genie_server to explicitly send
           a reply to a client that called <c>call/2,3</c> or
           <c>multi_call/2,3,4</c>, when the reply cannot be defined in
           the return value of <c>Module:handle_call/3</c>.</p>
@@ -360,7 +360,7 @@ gen_server:abcast     -----> Module:handle_cast/2
       <name>enter_loop(Module, Options, State, ServerName)</name>
       <name>enter_loop(Module, Options, State, Timeout)</name>
       <name>enter_loop(Module, Options, State, ServerName, Timeout)</name>
-      <fsummary>Enter the gen_server receive loop</fsummary>
+      <fsummary>Enter the genie_server receive loop</fsummary>
       <type>
         <v>Module = atom()</v>
         <v>Options = [Option]</v>
@@ -376,19 +376,19 @@ gen_server:abcast     -----> Module:handle_cast/2
         <v>Timeout = int() | infinity</v>
       </type>
       <desc>
-        <p>Makes an existing process into a gen_server. Does not return,
-          instead the calling process will enter the gen_server receive
-          loop and become a gen_server process. The process
+        <p>Makes an existing process into a genie_server. Does not return,
+          instead the calling process will enter the genie_server receive
+          loop and become a genie_server process. The process
           <em>must</em> have been started using one of the start
           functions in <c>proc_lib</c>, see
           <seealso marker="proc_lib">proc_lib(3)</seealso>. The user is
           responsible for any initialization of the process, including
           registering a name for it.</p>
         <p>This function is useful when a more complex initialization
-          procedure is needed than the gen_server behaviour provides.</p>
+          procedure is needed than the genie_server behaviour provides.</p>
         <p><c>Module</c>, <c>Options</c> and <c>ServerName</c> have
           the same meanings as when calling
-          <seealso marker="#start_link/3">gen_server:start[_link]/3,4</seealso>.
+          <seealso marker="#start_link/3">genie_server:start[_link]/3,4</seealso>.
           However, if <c>ServerName</c> is specified, the process must
           have been registered accordingly <em>before</em> this function
           is called.</p>
@@ -407,7 +407,7 @@ gen_server:abcast     -----> Module:handle_cast/2
   <section>
     <title>CALLBACK FUNCTIONS</title>
     <p>The following functions
-      should be exported from a <c>gen_server</c> callback module.</p>
+      should be exported from a <c>genie_server</c> callback module.</p>
   </section>
   <funcs>
     <func>
@@ -423,15 +423,15 @@ gen_server:abcast     -----> Module:handle_cast/2
       </type>
       <desc>
         <marker id="Moduleinit"></marker>
-        <p>Whenever a gen_server is started using
-          <seealso marker="#start/3">gen_server:start/3,4</seealso> or
-          <seealso marker="#start_link/3">gen_server:start_link/3,4</seealso>,
+        <p>Whenever a genie_server is started using
+          <seealso marker="#start/3">genie_server:start/3,4</seealso> or
+          <seealso marker="#start_link/3">genie_server:start_link/3,4</seealso>,
           this function is called by the new process to initialize.</p>
         <p><c>Args</c> is the <c>Args</c> argument provided to the start
           function.</p>
         <p>If the initialization is successful, the function should
           return <c>{ok,State}</c>, <c>{ok,State,Timeout}</c> or <c>{ok,State,hibernate}</c>, where
-          <c>State</c> is the internal state of the gen_server.</p>
+          <c>State</c> is the internal state of the genie_server.</p>
         <p>If an integer timeout value is provided, a timeout will occur
           unless a request or a message is received within
           <c>Timeout</c> milliseconds. A timeout is represented by
@@ -465,35 +465,35 @@ gen_server:abcast     -----> Module:handle_cast/2
         <v>&nbsp;Reason = term()</v>
       </type>
       <desc>
-        <p>Whenever a gen_server receives a request sent using
-          <seealso marker="#call/2">gen_server:call/2,3</seealso> or
-          <seealso marker="#multi_call/2">gen_server:multi_call/2,3,4</seealso>,
+        <p>Whenever a genie_server receives a request sent using
+          <seealso marker="#call/2">genie_server:call/2,3</seealso> or
+          <seealso marker="#multi_call/2">genie_server:multi_call/2,3,4</seealso>,
           this function is called to handle the request.</p>
         <p><c>Request</c> is the <c>Request</c> argument provided
           to <c>call</c> or <c>multi_call</c>.</p>
         <p><c>From</c> is a tuple <c>{Pid,Tag}</c> where <c>Pid</c> is
           the pid of the client and <c>Tag</c> is a unique tag.</p>
-        <p><c>State</c> is the internal state of the gen_server.</p>
+        <p><c>State</c> is the internal state of the genie_server.</p>
         <p>If the function returns <c>{reply,Reply,NewState}</c>, 
           <c>{reply,Reply,NewState,Timeout}</c> or 
 	  <c>{reply,Reply,NewState,hibernate}</c>, <c>Reply</c> will be
           given back to <c>From</c> as the return value of
           <c>call/2,3</c> or included in the return value of
-          <c>multi_call/2,3,4</c>. The gen_server then continues
+          <c>multi_call/2,3,4</c>. The genie_server then continues
           executing with the possibly updated internal state
           <c>NewState</c>. See <c>Module:init/1</c> for a description
           of <c>Timeout</c> and <c>hibernate</c>.</p>
         <p>If the functions returns <c>{noreply,NewState}</c>,
           <c>{noreply,NewState,Timeout}</c> or <c>{noreply,NewState,hibernate}</c>, 
-	  the gen_server will
+	  the genie_server will
           continue executing with <c>NewState</c>. Any reply to
           <c>From</c> must be given explicitly using
-          <seealso marker="#reply/2">gen_server:reply/2</seealso>.</p>
+          <seealso marker="#reply/2">genie_server:reply/2</seealso>.</p>
         <p>If the function returns <c>{stop,Reason,Reply,NewState}</c>,
           <c>Reply</c> will be given back to <c>From</c>. If
           the function returns <c>{stop,Reason,NewState}</c>, any reply
           to <c>From</c> must be given explicitly using
-          <c>gen_server:reply/2</c>. The gen_server will then call
+          <c>genie_server:reply/2</c>. The gen_server will then call
           <c>Module:terminate(Reason,NewState)</c> and terminate.</p>
       </desc>
     </func>
@@ -511,9 +511,9 @@ gen_server:abcast     -----> Module:handle_cast/2
         <v>&nbsp;Reason = term()</v>
       </type>
       <desc>
-        <p>Whenever a gen_server receives a request sent using
-          <seealso marker="#cast/2">gen_server:cast/2</seealso> or
-          <seealso marker="#abcast/2">gen_server:abcast/2,3</seealso>,
+        <p>Whenever a genie_server receives a request sent using
+          <seealso marker="#cast/2">genie_server:cast/2</seealso> or
+          <seealso marker="#abcast/2">genie_server:abcast/2,3</seealso>,
           this function is called to handle the request.</p>
         <p>See <c>Module:handle_call/3</c> for a description of
           the arguments and possible return values.</p>
@@ -533,7 +533,7 @@ gen_server:abcast     -----> Module:handle_cast/2
         <v>&nbsp;Reason = normal | term()</v>
       </type>
       <desc>
-        <p>This function is called by a gen_server when a timeout
+        <p>This function is called by a genie_server when a timeout
           occurs or when it receives any other message than a
           synchronous or asynchronous request (or a system message).</p>
         <p><c>Info</c> is either the atom <c>timeout</c>, if a timeout
@@ -550,35 +550,35 @@ gen_server:abcast     -----> Module:handle_cast/2
         <v>State = term()</v>
       </type>
       <desc>
-        <p>This function is called by a gen_server when it is about to
+        <p>This function is called by a genie_server when it is about to
           terminate. It should be the opposite of <c>Module:init/1</c>
           and do any necessary cleaning up. When it returns,
-          the gen_server terminates with <c>Reason</c>. The return
+          the genie_server terminates with <c>Reason</c>. The return
           value is ignored.</p>
         <p><c>Reason</c> is a term denoting the stop reason and
-          <c>State</c> is the internal state of the gen_server.</p>
-        <p><c>Reason</c> depends on why the gen_server is terminating.
+          <c>State</c> is the internal state of the genie_server.</p>
+        <p><c>Reason</c> depends on why the genie_server is terminating.
           If it is because another callback function has returned a
           stop tuple <c>{stop,..}</c>, <c>Reason</c> will have
           the value specified in that tuple. If it is due to a failure,
           <c>Reason</c> is the error reason.</p>
-        <p>If the gen_server is part of a supervision tree and is
+        <p>If the genie_server is part of a supervision tree and is
           ordered by its supervisor to terminate, this function will be
           called with <c>Reason=shutdown</c> if the following
           conditions apply:</p>
         <list type="bulleted">
-          <item>the gen_server has been set to trap exit signals, and</item>
+          <item>the genie_server has been set to trap exit signals, and</item>
           <item>the shutdown strategy as defined in the supervisor's
            child specification is an integer timeout value, not
           <c>brutal_kill</c>.</item>
         </list>
-        <p>Even if the gen_server is <em>not</em> part of a supervision tree,
+        <p>Even if the genie_server is <em>not</em> part of a supervision tree,
 	   this function will be called if it receives an <c>'EXIT'</c>
 	   message from its parent. <c>Reason</c> will be the same as in
 	   the <c>'EXIT'</c> message.</p>
-        <p>Otherwise, the gen_server will be immediately terminated.</p>
+        <p>Otherwise, the genie_server will be immediately terminated.</p>
         <p>Note that for any other reason than <c>normal</c>,
-          <c>shutdown</c>, or <c>{shutdown,Term}</c> the gen_server is
+          <c>shutdown</c>, or <c>{shutdown,Term}</c> the genie_server is
 	  assumed to terminate due to an error and
 	  an error report is issued using
           <seealso marker="kernel:error_logger#format/2">error_logger:format/2</seealso>.</p>
@@ -595,7 +595,7 @@ gen_server:abcast     -----> Module:handle_cast/2
 	<v>Reason = term()</v>
       </type>
       <desc>
-        <p>This function is called by a gen_server when it should
+        <p>This function is called by a genie_server when it should
           update its internal state during a release upgrade/downgrade,
           i.e. when the instruction <c>{update,Module,Change,...}</c>
           where <c>Change={advanced,Extra}</c> is given in
@@ -608,7 +608,7 @@ gen_server:abcast     -----> Module:handle_cast/2
           attribute(s) of the old version of the callback module
           <c>Module</c>. If no such attribute is defined, the version
           is the checksum of the BEAM file.</p>
-        <p><c>State</c> is the internal state of the gen_server.</p>
+        <p><c>State</c> is the internal state of the genie_server.</p>
         <p><c>Extra</c> is passed as-is from the <c>{advanced,Extra}</c>
           part of the update instruction.</p>
         <p>If successful, the function shall return the updated
@@ -620,7 +620,7 @@ gen_server:abcast     -----> Module:handle_cast/2
     <func>
       <name>Module:format_status(Opt, [PDict, State]) -> Status</name>
       <fsummary>Optional function for providing a term describing the
-        current gen_server status.</fsummary>
+        current genie_server status.</fsummary>
       <type>
         <v>Opt = normal | terminate</v>
         <v>PDict = [{Key, Value}]</v>
@@ -630,39 +630,39 @@ gen_server:abcast     -----> Module:handle_cast/2
       <desc>
         <note>
           <p>This callback is optional, so callback modules need not
-            export it. The gen_server module provides a default
+            export it. The genie_server module provides a default
             implementation of this function that returns the callback
             module state.</p>
         </note>
-        <p>This function is called by a gen_server process when:</p>
+        <p>This function is called by a genie_server process when:</p>
         <list typed="bulleted">
           <item>One
           of <seealso marker="sys#get_status/1">sys:get_status/1,2</seealso>
-          is invoked to get the gen_server status. <c>Opt</c> is set
+          is invoked to get the genie_server status. <c>Opt</c> is set
           to the atom <c>normal</c> for this case.</item>
-          <item>The gen_server terminates abnormally and logs an
+          <item>The genie_server terminates abnormally and logs an
           error. <c>Opt</c> is set to the atom <c>terminate</c> for this
           case.</item>
         </list>
         <p>This function is useful for customising the form and
-          appearance of the gen_server status for these cases. A
+          appearance of the genie_server status for these cases. A
           callback module wishing to customise
           the <c>sys:get_status/1,2</c> return value as well as how
           its status appears in termination error logs exports an
           instance of <c>format_status/2</c> that returns a term
-          describing the current status of the gen_server.</p>
-        <p><c>PDict</c> is the current value of the gen_server's
+          describing the current status of the genie_server.</p>
+        <p><c>PDict</c> is the current value of the genie_server's
           process dictionary.</p>
-        <p><c>State</c> is the internal state of the gen_server.</p>
+        <p><c>State</c> is the internal state of the genie_server.</p>
         <p>The function should return <c>Status</c>, a term that
           customises the details of the current state and status of
-          the gen_server. There are no restrictions on the
+          the genie_server. There are no restrictions on the
           form <c>Status</c> can take, but for
           the <c>sys:get_status/1,2</c> case (when <c>Opt</c>
           is <c>normal</c>), the recommended form for
           the <c>Status</c> value is <c>[{data, [{"State",
           Term}]}]</c> where <c>Term</c> provides relevant details of
-          the gen_server state. Following this recommendation isn't
+          the genie_server state. Following this recommendation isn't
           required, but doing so will make the callback module status
           consistent with the rest of the <c>sys:get_status/1,2</c>
           return value.</p>
@@ -675,8 +675,8 @@ gen_server:abcast     -----> Module:handle_cast/2
 
   <section>
     <title>SEE ALSO</title>
-    <p><seealso marker="gen_event">gen_event(3)</seealso>,
-      <seealso marker="gen_fsm">gen_fsm(3)</seealso>,
+    <p><seealso marker="genie_event">genie_event(3)</seealso>,
+      <seealso marker="genie_fsm">genie_fsm(3)</seealso>,
       <seealso marker="supervisor">supervisor(3)</seealso>,
       <seealso marker="proc_lib">proc_lib(3)</seealso>,
       <seealso marker="sys">sys(3)</seealso></p>

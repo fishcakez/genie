@@ -21,13 +21,13 @@
 
     </legalnotice>
 
-    <title>gen_event</title>
+    <title>genie_event</title>
     <prepared></prepared>
     <docno></docno>
     <date></date>
     <rev></rev>
   </header>
-  <module>gen_event</module>
+  <module>genie_event</module>
   <modulesummary>Generic Event Handling Behaviour</modulesummary>
   <description>
     <p>A behaviour module for implementing event handling functionality.
@@ -42,34 +42,34 @@
       a pre-defined set of functions. The relationship between the behaviour
       functions and the callback functions can be illustrated as follows:</p>
     <pre>
-gen_event module                   Callback module
+genie_event module                   Callback module
 ----------------                   ---------------
-gen_event:start_link       ----->  -
+genie_event:start_link       ----->  -
 
-gen_event:add_handler
-gen_event:add_sup_handler  ----->  Module:init/1
+genie_event:add_handler
+genie_event:add_sup_handler  ----->  Module:init/1
 
-gen_event:notify
-gen_event:sync_notify      ----->  Module:handle_event/2
+genie_event:notify
+genie_event:sync_notify      ----->  Module:handle_event/2
 
-gen_event:call             ----->  Module:handle_call/2
+genie_event:call             ----->  Module:handle_call/2
 
 -                          ----->  Module:handle_info/2
 
-gen_event:delete_handler   ----->  Module:terminate/2
+genie_event:delete_handler   ----->  Module:terminate/2
 
-gen_event:swap_handler
-gen_event:swap_sup_handler ----->  Module1:terminate/2
+genie_event:swap_handler
+genie_event:swap_sup_handler ----->  Module1:terminate/2
                                    Module2:init/1
 
-gen_event:which_handlers   ----->  -
+genie_event:which_handlers   ----->  -
 
-gen_event:stop             ----->  Module:terminate/2
+genie_event:stop             ----->  Module:terminate/2
 
 -                          ----->  Module:code_change/3</pre>
     <p>Since each event handler is one callback module, an event manager
       will have several callback modules which are added and deleted
-      dynamically. Therefore <c>gen_event</c> is more tolerant of callback
+      dynamically. Therefore <c>genie_event</c> is more tolerant of callback
       module errors than the other behaviours. If a callback function for
       an installed event handler fails with <c>Reason</c>, or returns a
       bad value <c>Term</c>, the event manager will not fail. It will delete
@@ -77,12 +77,12 @@ gen_event:stop             ----->  Module:terminate/2
       <c>Module:terminate/2</c> (see below), giving as argument
       <c>{error,{'EXIT',Reason}}</c> or <c>{error,Term}</c>, respectively.
       No other event handler will be affected.</p>
-    <p>A gen_event process handles system messages as documented in
+    <p>A genie_event process handles system messages as documented in
        <seealso marker="sys">sys(3)</seealso>. The <c>sys</c> module
        can be used for debugging an event manager.</p>
     <p>Note that an event manager <em>does</em> trap exit signals
       automatically.</p>
-    <p>The gen_event process can go into hibernation 
+    <p>The genie_event process can go into hibernation 
     (see <seealso marker="erts:erlang#erlang:hibernate/3">erlang(3)</seealso>) if a callback
     function in a handler module specifies <c>'hibernate'</c> in its return value. 
     This might be useful if the server is expected to be idle for a long
@@ -244,7 +244,7 @@ gen_event:stop             ----->  Module:terminate/2
           <c>Module:terminate/2</c> with <c>{stop,Reason}</c> as argument.</item>
           <item>
             <p>If the event handler later is deleted, the event manager
-              sends a message<c>{gen_event_EXIT,Handler,Reason}</c> to
+              sends a message<c>{genie_event_EXIT,Handler,Reason}</c> to
               the calling process. <c>Reason</c> is one of the following:</p>
             <list type="bulleted">
               <item><c>normal</c>, if the event handler has been removed due to a
@@ -475,7 +475,7 @@ gen_event:stop             ----->  Module:terminate/2
 
   <section>
     <title>CALLBACK FUNCTIONS</title>
-    <p>The following functions should be exported from a <c>gen_event</c>
+    <p>The following functions should be exported from a <c>genie_event</c>
       callback module.</p>
   </section>
   <funcs>
@@ -492,17 +492,17 @@ gen_event:stop             ----->  Module:terminate/2
         <p>Whenever a new event handler is added to an event manager,
           this function is called to initialize the event handler.</p>
         <p>If the event handler is added due to a call to
-          <c>gen_event:add_handler/3</c> or
-          <c>gen_event:add_sup_handler/3</c>, <c>InitArgs</c> is
+          <c>genie_event:add_handler/3</c> or
+          <c>genie_event:add_sup_handler/3</c>, <c>InitArgs</c> is
           the <c>Args</c> argument of these functions.</p>
         <p>If the event handler is replacing another event handler due to
-          a call to <c>gen_event:swap_handler/3</c> or
-          <c>gen_event:swap_sup_handler/3</c>, or due to a <c>swap</c>
+          a call to <c>genie_event:swap_handler/3</c> or
+          <c>genie_event:swap_sup_handler/3</c>, or due to a <c>swap</c>
           return tuple from one of the other callback functions,
           <c>InitArgs</c> is a tuple <c>{Args,Term}</c> where <c>Args</c> is
           the argument provided in the function call/return tuple and
           <c>Term</c> is the result of terminating the old event handler,
-          see <c>gen_event:swap_handler/3</c>.</p>
+          see <c>genie_event:swap_handler/3</c>.</p>
         <p>If successful, the function should return <c>{ok,State}</c>
 	  or <c>{ok,State,hibernate}</c> where <c>State</c> is the
 	  initial internal state of the event handler.</p>
@@ -528,7 +528,7 @@ gen_event:stop             ----->  Module:terminate/2
       </type>
       <desc>
         <p>Whenever an event manager receives an event sent using
-          <c>gen_event:notify/2</c> or <c>gen_event:sync_notify/2</c>, this
+          <c>genie_event:notify/2</c> or <c>genie_event:sync_notify/2</c>, this
           function is called for each installed event handler to handle
           the event.</p>
         <p><c>Event</c> is the <c>Event</c> argument of
@@ -550,7 +550,7 @@ gen_event:stop             ----->  Module:terminate/2
           <c>Module:terminate(Args1,NewState)</c> and then
           <c>Module2:init({Args2,Term})</c> where <c>Term</c> is the return
           value of <c>Module:terminate/2</c>.
-          See <c>gen_event:swap_handler/3</c> for more information.</p>
+          See <c>genie_event:swap_handler/3</c> for more information.</p>
         <p>If the function returns <c>remove_handler</c> the event handler
           will be deleted by calling
           <c>Module:terminate(remove_handler,State)</c>.</p>
@@ -574,7 +574,7 @@ gen_event:stop             ----->  Module:terminate/2
       </type>
       <desc>
         <p>Whenever an event manager receives a request sent using
-          <c>gen_event:call/3,4</c>, this function is called for
+          <c>genie_event:call/3,4</c>, this function is called for
           the specified event handler to handle the request.</p>
         <p><c>Request</c> is the <c>Request</c> argument of <c>call</c>.</p>
         <p><c>State</c> is the internal state of the event handler.</p>
@@ -619,8 +619,8 @@ gen_event:stop             ----->  Module:terminate/2
           this function is called. It should be the opposite of
           <c>Module:init/1</c> and do any necessary cleaning up.</p>
         <p>If the event handler is deleted due to a call to
-          <c>gen_event:delete_handler</c>, <c>gen_event:swap_handler/3</c>
-          or <c>gen_event:swap_sup_handler/3</c>, <c>Arg</c> is
+          <c>genie_event:delete_handler</c>, <c>genie_event:swap_handler/3</c>
+          or <c>genie_event:swap_sup_handler/3</c>, <c>Arg</c> is
           the <c>Args</c> argument of this function call.</p>
         <p><c>Arg={stop,Reason}</c> if the event handler has a supervised
           connection to a process which has terminated with reason
@@ -641,7 +641,7 @@ gen_event:stop             ----->  Module:terminate/2
           failed.</p>
         <p><c>State</c> is the internal state of the event handler.</p>
         <p>The function may return any term. If the event handler is
-          deleted due to a call to <c>gen_event:delete_handler</c>,
+          deleted due to a call to <c>genie_event:delete_handler</c>,
           the return value of that function will be the return value of this
           function. If the event handler is to be replaced with another event
           handler due to a swap, the return value will be passed to
@@ -692,16 +692,16 @@ gen_event:stop             ----->  Module:terminate/2
         <note>
           <p>This callback is optional, so event handler modules need
             not export it. If a handler does not export this function,
-            the gen_event module uses the handler state directly for
+            the genie_event module uses the handler state directly for
             the purposes described below.</p>
         </note>
-        <p>This function is called by a gen_event process when:</p>
+        <p>This function is called by a genie_event process when:</p>
         <list typed="bulleted">
           <item>One
             of <seealso marker="sys#get_status/1">sys:get_status/1,2</seealso>
-            is invoked to get the gen_event status. <c>Opt</c> is set
+            is invoked to get the genie_event status. <c>Opt</c> is set
             to the atom <c>normal</c> for this case.</item>
-          <item>The event handler terminates abnormally and gen_event
+          <item>The event handler terminates abnormally and genie_event
             logs an error. <c>Opt</c> is set to the
             atom <c>terminate</c> for this case.</item>
         </list>
@@ -712,19 +712,19 @@ gen_event:stop             ----->  Module:terminate/2
           its state appears in termination error logs exports an
           instance of <c>format_status/2</c> that returns a term
           describing the current state of the event handler.</p>
-        <p><c>PDict</c> is the current value of the gen_event's
+        <p><c>PDict</c> is the current value of the genie_event's
           process dictionary.</p>
         <p><c>State</c> is the internal state of the event
           handler.</p>
         <p>The function should return <c>Status</c>, a term that
           customises the details of the current state of the event
           handler. Any term is allowed for <c>Status</c>. The
-          gen_event module uses <c>Status</c> as follows:</p>
+          genie_event module uses <c>Status</c> as follows:</p>
         <list typed="bulleted">
-          <item>When <c>sys:get_status/1,2</c> is called, gen_event
+          <item>When <c>sys:get_status/1,2</c> is called, genie_event
             ensures that its return value contains <c>Status</c> in
             place of the event handler's actual state term.</item>
-          <item>When an event handler terminates abnormally, gen_event
+          <item>When an event handler terminates abnormally, genie_event
             logs <c>Status</c> in place of the event handler's actual
             state term.</item>
         </list>

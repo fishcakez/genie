@@ -21,54 +21,54 @@
 
     </legalnotice>
 
-    <title>gen_fsm</title>
+    <title>genie_fsm</title>
     <prepared></prepared>
     <docno></docno>
     <date></date>
     <rev></rev>
   </header>
-  <module>gen_fsm</module>
+  <module>genie_fsm</module>
   <modulesummary>Generic Finite State Machine Behaviour</modulesummary>
   <description>
     <p>A behaviour module for implementing a finite state machine.
-      A generic finite state machine process (gen_fsm) implemented
+      A generic finite state machine process (genie_fsm) implemented
       using this module will have a standard set of interface functions
       and include functionality for tracing and error reporting. It will
       also fit into an OTP supervision tree. Refer to
       <seealso marker="doc/design_principles:fsm">OTP Design Principles</seealso> for more information.</p>
-    <p>A gen_fsm assumes all specific parts to be located in a callback
+    <p>A genie_fsm assumes all specific parts to be located in a callback
       module exporting a pre-defined set of functions. The relationship
       between the behaviour functions and the callback functions can be
       illustrated as follows:</p>
     <pre>
-gen_fsm module                    Callback module
+genie_fsm module                    Callback module
 --------------                    ---------------
-gen_fsm:start_link                -----> Module:init/1
+genie_fsm:start_link                -----> Module:init/1
 
-gen_fsm:send_event                -----> Module:StateName/2
+genie_fsm:send_event                -----> Module:StateName/2
 
-gen_fsm:send_all_state_event      -----> Module:handle_event/3
+genie_fsm:send_all_state_event      -----> Module:handle_event/3
 
-gen_fsm:sync_send_event           -----> Module:StateName/3
+genie_fsm:sync_send_event           -----> Module:StateName/3
 
-gen_fsm:sync_send_all_state_event -----> Module:handle_sync_event/4
+genie_fsm:sync_send_all_state_event -----> Module:handle_sync_event/4
 
 -                                 -----> Module:handle_info/3
 
 -                                 -----> Module:terminate/3
 
 -                                 -----> Module:code_change/4</pre>
-    <p>If a callback function fails or returns a bad value, the gen_fsm
+    <p>If a callback function fails or returns a bad value, the genie_fsm
       will terminate.</p>
-    <p>A gen_fsm handles system messages as documented in
+    <p>A genie_fsm handles system messages as documented in
        <seealso marker="sys">sys(3)</seealso>. The <c>sys</c> module
-       can be used for debugging a gen_fsm.</p>
-    <p>Note that a gen_fsm does not trap exit signals automatically,
+       can be used for debugging a genie_fsm.</p>
+    <p>Note that a genie_fsm does not trap exit signals automatically,
       this must be explicitly initiated in the callback module.</p>
     <p>Unless otherwise stated, all functions in this module fail if
-      the specified gen_fsm does not exist or if bad arguments are
+      the specified genie_fsm does not exist or if bad arguments are
       given.</p>
-    <p>The gen_fsm process can go into hibernation 
+    <p>The genie_fsm process can go into hibernation 
     (see <seealso marker="erts:erlang#erlang:hibernate/3">erlang(3)</seealso>) if a callback
     function specifies <c>'hibernate'</c> instead of a timeout value. This
     might be useful if the server is expected to be idle for a long
@@ -82,7 +82,7 @@ gen_fsm:sync_send_all_state_event -----> Module:handle_sync_event/4
     <func>
       <name>start_link(Module, Args, Options) -> Result</name>
       <name>start_link(FsmName, Module, Args, Options) -> Result</name>
-      <fsummary>Create a gen_fsm process in a supervision tree.</fsummary>
+      <fsummary>Create a genie_fsm process in a supervision tree.</fsummary>
       <type>
         <v>FsmName = {local,Name} | {global,GlobalName}
 	| {via,Module,ViaName}</v>
@@ -102,17 +102,17 @@ gen_fsm:sync_send_all_state_event -----> Module:handle_sync_event/4
         <v>&nbsp;Error = {already_started,Pid} | term()</v>
       </type>
       <desc>
-        <p>Creates a gen_fsm process as part of a supervision tree.
+        <p>Creates a genie_fsm process as part of a supervision tree.
           The function should be called, directly or indirectly, by
           the supervisor. It will, among other things, ensure that
-          the gen_fsm is linked to the supervisor.</p>
-        <p>The gen_fsm process calls <c>Module:init/1</c> to
+          the genie_fsm is linked to the supervisor.</p>
+        <p>The genie_fsm process calls <c>Module:init/1</c> to
           initialize. To ensure a synchronized start-up procedure,
           <c>start_link/3,4</c> does not return until
           <c>Module:init/1</c> has returned.</p>
-        <p>If <c>FsmName={local,Name}</c>, the gen_fsm is registered
+        <p>If <c>FsmName={local,Name}</c>, the genie_fsm is registered
           locally as <c>Name</c> using <c>register/2</c>.
-          If <c>FsmName={global,GlobalName}</c>, the gen_fsm is
+          If <c>FsmName={global,GlobalName}</c>, the genie_fsm is
           registered globally as <c>GlobalName</c> using
           <c>global:register_name/2</c>.
 	  If <c>EventMgrName={via,Module,ViaName}</c>, the event manager will
@@ -123,11 +123,11 @@ gen_fsm:sync_send_all_state_event -----> Module:handle_sync_event/4
 	  corresponding functions in <c>global</c>. Thus,
 	<c>{via,global,GlobalName}</c> is a valid reference.</p>
 	<p>If no name is provided,
-	the gen_fsm is not registered.</p>
+	the genie_fsm is not registered.</p>
         <p><c>Module</c> is the name of the callback module.</p>
         <p><c>Args</c> is an arbitrary term which is passed as
           the argument to <c>Module:init/1</c>.</p>
-        <p>If the option <c>{timeout,Time}</c> is present, the gen_fsm
+        <p>If the option <c>{timeout,Time}</c> is present, the genie_fsm
           is allowed to spend <c>Time</c> milliseconds initializing
           or it will be terminated and the start function will return
           <c>{error,timeout}</c>.</p>
@@ -137,7 +137,7 @@ gen_fsm:sync_send_all_state_event -----> Module:handle_sync_event/4
           <seealso marker="sys">sys(3)</seealso>.</p>
         <p>If the option <c>{spawn_opt,SOpts}</c> is present,
           <c>SOpts</c> will be passed as option list to
-          the <c>spawn_opt</c> BIF which is used to spawn the gen_fsm
+          the <c>spawn_opt</c> BIF which is used to spawn the genie_fsm
           process. See
           <seealso marker="erts:erlang#spawn_opt/2">erlang(3)</seealso>.</p>
         <note>
@@ -145,9 +145,9 @@ gen_fsm:sync_send_all_state_event -----> Module:handle_sync_event/4
             allowed, but will cause the function to fail with reason
             <c>badarg</c>.</p>
         </note>
-        <p>If the gen_fsm is successfully created and initialized
+        <p>If the genie_fsm is successfully created and initialized
           the function returns <c>{ok,Pid}</c>, where <c>Pid</c> is
-          the pid of the gen_fsm. If there already exists a process with
+          the pid of the genie_fsm. If there already exists a process with
           the specified <c>FsmName</c>, the function returns
           <c>{error,{already_started,Pid}}</c> where <c>Pid</c> is
           the pid of that process.</p>
@@ -161,7 +161,7 @@ gen_fsm:sync_send_all_state_event -----> Module:handle_sync_event/4
     <func>
       <name>start(Module, Args, Options) -> Result</name>
       <name>start(FsmName, Module, Args, Options) -> Result</name>
-      <fsummary>Create a stand-alone gen_fsm process.</fsummary>
+      <fsummary>Create a stand-alone genie_fsm process.</fsummary>
       <type>
         <v>FsmName = {local,Name} | {global,GlobalName}
 	| {via,Module,ViaName}</v>
@@ -180,7 +180,7 @@ gen_fsm:sync_send_all_state_event -----> Module:handle_sync_event/4
         <v>&nbsp;Error = {already_started,Pid} | term()</v>
       </type>
       <desc>
-        <p>Creates a stand-alone gen_fsm process, i.e. a gen_fsm which
+        <p>Creates a stand-alone genie_fsm process, i.e. a genie_fsm which
           is not part of a supervision tree and thus has no supervisor.</p>
         <p>See <seealso marker="#start_link/3">start_link/3,4</seealso>
           for a description of arguments and return values.</p>
@@ -197,18 +197,18 @@ gen_fsm:sync_send_all_state_event -----> Module:handle_sync_event/4
         <v>Event = term()</v>
       </type>
       <desc>
-        <p>Sends an event asynchronously to the gen_fsm <c>FsmRef</c>
-          and returns <c>ok</c> immediately. The gen_fsm will call
+        <p>Sends an event asynchronously to the genie_fsm <c>FsmRef</c>
+          and returns <c>ok</c> immediately. The genie_fsm will call
           <c>Module:StateName/2</c> to handle the event, where
           <c>StateName</c> is the name of the current state of
-          the gen_fsm.</p>
+          the genie_fsm.</p>
         <p><c>FsmRef</c> can be:</p>
         <list type="bulleted">
           <item>the pid,</item>
-          <item><c>Name</c>, if the gen_fsm is locally registered,</item>
-          <item><c>{Name,Node}</c>, if the gen_fsm is locally
+          <item><c>Name</c>, if the genie_fsm is locally registered,</item>
+          <item><c>{Name,Node}</c>, if the genie_fsm is locally
 	  registered at another node, or</item>
-	  <item><c>{global,GlobalName}</c>, if the gen_fsm is globally
+	  <item><c>{global,GlobalName}</c>, if the genie_fsm is globally
 	  registered.</item>
 	  <item><c>{via,Module,ViaName}</c>, if the event manager is registered
 	  through an alternative process registry.</item>
@@ -228,8 +228,8 @@ gen_fsm:sync_send_all_state_event -----> Module:handle_sync_event/4
         <v>Event = term()</v>
       </type>
       <desc>
-        <p>Sends an event asynchronously to the gen_fsm <c>FsmRef</c>
-          and returns <c>ok</c> immediately. The gen_fsm will call
+        <p>Sends an event asynchronously to the genie_fsm <c>FsmRef</c>
+          and returns <c>ok</c> immediately. The genie_fsm will call
           <c>Module:handle_event/3</c> to handle the event.</p>
         <p>See <seealso marker="#send_event/2">send_event/2</seealso>
           for a description of the arguments.</p>
@@ -255,11 +255,11 @@ gen_fsm:sync_send_all_state_event -----> Module:handle_sync_event/4
         <v>Reply = term()</v>
       </type>
       <desc>
-        <p>Sends an event to the gen_fsm <c>FsmRef</c> and waits until a
-          reply arrives or a timeout occurs. The gen_fsm will call
+        <p>Sends an event to the genie_fsm <c>FsmRef</c> and waits until a
+          reply arrives or a timeout occurs. The genie_fsm will call
           <c>Module:StateName/3</c> to handle the event, where
           <c>StateName</c> is the name of the current state of
-          the gen_fsm.</p>
+          the genie_fsm.</p>
         <p>See <seealso marker="#send_event/2">send_event/2</seealso>
           for a description of <c>FsmRef</c> and <c>Event</c>.</p>
         <p><c>Timeout</c> is an integer greater than zero which
@@ -288,8 +288,8 @@ gen_fsm:sync_send_all_state_event -----> Module:handle_sync_event/4
         <v>Reply = term()</v>
       </type>
       <desc>
-        <p>Sends an event to the gen_fsm <c>FsmRef</c> and waits until a
-          reply arrives or a timeout occurs. The gen_fsm will call
+        <p>Sends an event to the genie_fsm <c>FsmRef</c> and waits until a
+          reply arrives or a timeout occurs. The genie_fsm will call
           <c>Module:handle_sync_event/4</c> to handle the event.</p>
         <p>See <seealso marker="#send_event/2">send_event/2</seealso>
           for a description of <c>FsmRef</c> and <c>Event</c>. See
@@ -309,7 +309,7 @@ gen_fsm:sync_send_all_state_event -----> Module:handle_sync_event/4
         <v>Reply = term()</v>
       </type>
       <desc>
-        <p>This function can be used by a gen_fsm to explicitly send a
+        <p>This function can be used by a genie_fsm to explicitly send a
           reply to a client process that called
           <seealso marker="#sync_send_event/2">sync_send_event/2,3</seealso>
           or
@@ -332,13 +332,13 @@ gen_fsm:sync_send_all_state_event -----> Module:handle_sync_event/4
         <v>Ref = reference()</v>
       </type>
       <desc>
-        <p>Sends a delayed event internally in the gen_fsm that calls
+        <p>Sends a delayed event internally in the genie_fsm that calls
           this function after <c>Time</c> ms. Returns immediately a
           reference that can be used to cancel the delayed send using
           <seealso marker="#cancel_timer/1">cancel_timer/1</seealso>.</p>
-        <p>The gen_fsm will call <c>Module:StateName/2</c> to handle
+        <p>The genie_fsm will call <c>Module:StateName/2</c> to handle
           the event, where <c>StateName</c> is the name of the current
-          state of the gen_fsm at the time the delayed event is
+          state of the genie_fsm at the time the delayed event is
           delivered.</p>
         <p><c>Event</c> is an arbitrary term which is passed as one of
           the arguments to <c>Module:StateName/2</c>.</p>
@@ -353,13 +353,13 @@ gen_fsm:sync_send_all_state_event -----> Module:handle_sync_event/4
         <v>Ref = reference()</v>
       </type>
       <desc>
-        <p>Sends a timeout event internally in the gen_fsm that calls
+        <p>Sends a timeout event internally in the genie_fsm that calls
           this function after <c>Time</c> ms. Returns immediately a
           reference that can be used to cancel the timer using
           <seealso marker="#cancel_timer/1">cancel_timer/1</seealso>.</p>
-        <p>The gen_fsm will call <c>Module:StateName/2</c> to handle
+        <p>The genie_fsm will call <c>Module:StateName/2</c> to handle
           the event, where <c>StateName</c> is the name of the current
-          state of the gen_fsm at the time the timeout message is
+          state of the genie_fsm at the time the timeout message is
           delivered.</p>
         <p><c>Msg</c> is an arbitrary term which is passed in the
           timeout message, <c>{timeout, Ref, Msg}</c>, as one of
@@ -375,7 +375,7 @@ gen_fsm:sync_send_all_state_event -----> Module:handle_sync_event/4
       </type>
       <desc>
         <p>Cancels an internal timer referred by <c>Ref</c> in the
-          gen_fsm that calls this function.</p>
+          genie_fsm that calls this function.</p>
         <p><c>Ref</c> is a reference returned from
           <seealso marker="#send_event_after/2">send_event_after/2</seealso>
           or
@@ -394,7 +394,7 @@ gen_fsm:sync_send_all_state_event -----> Module:handle_sync_event/4
       <name>enter_loop(Module, Options, StateName, StateData, FsmName)</name>
       <name>enter_loop(Module, Options, StateName, StateData, Timeout)</name>
       <name>enter_loop(Module, Options, StateName, StateData, FsmName, Timeout)</name>
-      <fsummary>Enter the gen_fsm receive loop</fsummary>
+      <fsummary>Enter the genie_fsm receive loop</fsummary>
       <type>
         <v>Module = atom()</v>
         <v>Options = [Option]</v>
@@ -411,16 +411,16 @@ gen_fsm:sync_send_all_state_event -----> Module:handle_sync_event/4
         <v>Timeout = int() | infinity</v>
       </type>
       <desc>
-        <p>Makes an existing process into a gen_fsm. Does not return,
-          instead the calling process will enter the gen_fsm receive
-          loop and become a gen_fsm process. The process <em>must</em>
+        <p>Makes an existing process into a genie_fsm. Does not return,
+          instead the calling process will enter the genie_fsm receive
+          loop and become a genie_fsm process. The process <em>must</em>
           have been started using one of the start functions in
           <c>proc_lib</c>, see
           <seealso marker="proc_lib">proc_lib(3)</seealso>. The user is
           responsible for any initialization of the process, including
           registering a name for it.</p>
         <p>This function is useful when a more complex initialization
-          procedure is needed than the gen_fsm behaviour provides.</p>
+          procedure is needed than the genie_fsm behaviour provides.</p>
         <p><c>Module</c>, <c>Options</c> and <c>FsmName</c> have
           the same meanings as when calling
           <seealso marker="#start_link/3">start[_link]/3,4</seealso>.
@@ -441,7 +441,7 @@ gen_fsm:sync_send_all_state_event -----> Module:handle_sync_event/4
 
   <section>
     <title>CALLBACK FUNCTIONS</title>
-    <p>The following functions should be exported from a <c>gen_fsm</c>
+    <p>The following functions should be exported from a <c>genie_fsm</c>
       callback module.</p>
     <p>In the description, the expression <em>state name</em> is used to
       denote a state of the state machine. <em>state data</em> is used
@@ -464,9 +464,9 @@ gen_fsm:sync_send_all_state_event -----> Module:handle_sync_event/4
       </type>
       <desc>
         <marker id="Moduleinit"></marker>
-        <p>Whenever a gen_fsm is started using
-          <seealso marker="#start/3">gen_fsm:start/3,4</seealso> or
-          <seealso marker="#start_link/3">gen_fsm:start_link/3,4</seealso>,
+        <p>Whenever a genie_fsm is started using
+          <seealso marker="#start/3">genie_fsm:start/3,4</seealso> or
+          <seealso marker="#start_link/3">genie_fsm:start_link/3,4</seealso>,
           this function is called by the new process to initialize.</p>
         <p><c>Args</c> is the <c>Args</c> argument provided to the start
           function.</p>
@@ -475,7 +475,7 @@ gen_fsm:sync_send_all_state_event -----> Module:handle_sync_event/4
           <c>{ok,StateName,StateData,Timeout}</c> or <c>{ok,StateName,StateData,hibernate}</c>, 
 	  where <c>StateName</c>
           is the initial state name and <c>StateData</c> the initial
-          state data of the gen_fsm.</p>
+          state data of the genie_fsm.</p>
         <p>If an integer timeout value is provided, a timeout will occur
           unless an event or a message is received within <c>Timeout</c>
           milliseconds. A timeout is represented by the atom
@@ -508,26 +508,26 @@ gen_fsm:sync_send_all_state_event -----> Module:handle_sync_event/4
       </type>
       <desc>
         <p>There should be one instance of this function for each
-          possible state name. Whenever a gen_fsm receives an event
+          possible state name. Whenever a genie_fsm receives an event
           sent using
-          <seealso marker="#send_event/2">gen_fsm:send_event/2</seealso>,
+          <seealso marker="#send_event/2">genie_fsm:send_event/2</seealso>,
           the instance of this function with the same name as
           the current state name <c>StateName</c> is called to handle
           the event. It is also called if a timeout occurs.</p>
         <p><c>Event</c> is either the atom <c>timeout</c>, if a timeout
           has occurred, or the <c>Event</c> argument provided to
           <c>send_event/2</c>.</p>
-        <p><c>StateData</c> is the state data of the gen_fsm.</p>
+        <p><c>StateData</c> is the state data of the genie_fsm.</p>
         <p>If the function returns
           <c>{next_state,NextStateName,NewStateData}</c>, 
           <c>{next_state,NextStateName,NewStateData,Timeout}</c> or
 	  <c>{next_state,NextStateName,NewStateData,hibernate}</c>,
-          the gen_fsm will continue executing with the current state
+          the genie_fsm will continue executing with the current state
           name set to <c>NextStateName</c> and with the possibly
           updated state data <c>NewStateData</c>. See
           <c>Module:init/1</c> for a description of <c>Timeout</c> and <c>hibernate</c>.</p>
         <p>If the function returns <c>{stop,Reason,NewStateData}</c>,
-          the gen_fsm will call
+          the genie_fsm will call
           <c>Module:terminate(Reason,NewStateData)</c> and terminate.</p>
       </desc>
     </func>
@@ -548,10 +548,10 @@ gen_fsm:sync_send_all_state_event -----> Module:handle_sync_event/4
         <v>&nbsp;Reason = term()</v>
       </type>
       <desc>
-        <p>Whenever a gen_fsm receives an event sent using
-          <seealso marker="#send_all_state_event/2">gen_fsm:send_all_state_event/2</seealso>,
+        <p>Whenever a genie_fsm receives an event sent using
+          <seealso marker="#send_all_state_event/2">genie_fsm:send_all_state_event/2</seealso>,
           this function is called to handle the event.</p>
-        <p><c>StateName</c> is the current state name of the gen_fsm.</p>
+        <p><c>StateName</c> is the current state name of the genie_fsm.</p>
         <p>See <c>Module:StateName/2</c> for a description of the other
           arguments and possible return values.</p>
       </desc>
@@ -578,9 +578,9 @@ gen_fsm:sync_send_all_state_event -----> Module:handle_sync_event/4
       </type>
       <desc>
         <p>There should be one instance of this function for each
-          possible state name. Whenever a gen_fsm receives an event
+          possible state name. Whenever a genie_fsm receives an event
           sent using
-          <seealso marker="#sync_send_event/2">gen_fsm:sync_send_event/2,3</seealso>,
+          <seealso marker="#sync_send_event/2">genie_fsm:sync_send_event/2,3</seealso>,
           the instance of this function with the same name as
           the current state name <c>StateName</c> is called to handle
           the event.</p>
@@ -589,13 +589,13 @@ gen_fsm:sync_send_all_state_event -----> Module:handle_sync_event/4
         <p><c>From</c> is a tuple <c>{Pid,Tag}</c> where <c>Pid</c> is
           the pid of the process which called <c>sync_send_event/2,3</c>
           and <c>Tag</c> is a unique tag.</p>
-        <p><c>StateData</c> is the state data of the gen_fsm.</p>
+        <p><c>StateData</c> is the state data of the genie_fsm.</p>
         <p>If the function returns
           <c>{reply,Reply,NextStateName,NewStateData}</c>, 
           <c>{reply,Reply,NextStateName,NewStateData,Timeout}</c> or 
 	  <c>{reply,Reply,NextStateName,NewStateData,hibernate}</c>,
           <c>Reply</c> will be given back to <c>From</c> as the return
-          value of <c>sync_send_event/2,3</c>. The gen_fsm then
+          value of <c>sync_send_event/2,3</c>. The genie_fsm then
           continues executing with the current state name set to
           <c>NextStateName</c> and with the possibly updated state data
           <c>NewStateData</c>. See <c>Module:init/1</c> for a
@@ -604,16 +604,16 @@ gen_fsm:sync_send_all_state_event -----> Module:handle_sync_event/4
           <c>{next_state,NextStateName,NewStateData}</c>, 
           <c>{next_state,NextStateName,NewStateData,Timeout}</c> or
           <c>{next_state,NextStateName,NewStateData,hibernate}</c>,
-          the gen_fsm will continue executing in <c>NextStateName</c>
+          the genie_fsm will continue executing in <c>NextStateName</c>
           with <c>NewStateData</c>. Any reply to <c>From</c> must be
           given explicitly using
-          <seealso marker="#reply/2">gen_fsm:reply/2</seealso>.</p>
+          <seealso marker="#reply/2">genie_fsm:reply/2</seealso>.</p>
         <p>If the function returns
           <c>{stop,Reason,Reply,NewStateData}</c>, <c>Reply</c> will be
           given back to <c>From</c>. If the function returns
           <c>{stop,Reason,NewStateData}</c>, any reply to <c>From</c>
-          must be given explicitly using <c>gen_fsm:reply/2</c>.
-          The gen_fsm will then call
+          must be given explicitly using <c>genie_fsm:reply/2</c>.
+          The genie_fsm will then call
           <c>Module:terminate(Reason,NewStateData)</c> and terminate.</p>
       </desc>
     </func>
@@ -639,10 +639,10 @@ gen_fsm:sync_send_all_state_event -----> Module:handle_sync_event/4
         <v>&nbsp;Reason = term()</v>
       </type>
       <desc>
-        <p>Whenever a gen_fsm receives an event sent using
-          <seealso marker="#sync_send_all_state_event/2">gen_fsm:sync_send_all_state_event/2,3</seealso>,
+        <p>Whenever a genie_fsm receives an event sent using
+          <seealso marker="#sync_send_all_state_event/2">genie_fsm:sync_send_all_state_event/2,3</seealso>,
           this function is called to handle the event.</p>
-        <p><c>StateName</c> is the current state name of the gen_fsm.</p>
+        <p><c>StateName</c> is the current state name of the genie_fsm.</p>
         <p>See <c>Module:StateName/3</c> for a description of the other
           arguments and possible return values.</p>
       </desc>
@@ -664,7 +664,7 @@ gen_fsm:sync_send_all_state_event -----> Module:handle_sync_event/4
         <v>&nbsp;Reason = normal | term()</v>
       </type>
       <desc>
-        <p>This function is called by a gen_fsm when it receives any
+        <p>This function is called by a genie_fsm when it receives any
           other message than a synchronous or asynchronous event (or a
           system message).</p>
         <p><c>Info</c> is the received message.</p>
@@ -681,34 +681,34 @@ gen_fsm:sync_send_all_state_event -----> Module:handle_sync_event/4
         <v>StateData = term()</v>
       </type>
       <desc>
-        <p>This function is called by a gen_fsm when it is about to
+        <p>This function is called by a genie_fsm when it is about to
           terminate. It should be the opposite of <c>Module:init/1</c>
-          and do any necessary cleaning up. When it returns, the gen_fsm
+          and do any necessary cleaning up. When it returns, the genie_fsm
           terminates with <c>Reason</c>. The return value is ignored.</p>
         <p><c>Reason</c> is a term denoting the stop reason,
           <c>StateName</c> is the current state name, and
-          <c>StateData</c> is the state data of the gen_fsm.</p>
-        <p><c>Reason</c> depends on why the gen_fsm is terminating. If
+          <c>StateData</c> is the state data of the genie_fsm.</p>
+        <p><c>Reason</c> depends on why the genie_fsm is terminating. If
           it is because another callback function has returned a stop
           tuple <c>{stop,..}</c>, <c>Reason</c> will have the value
           specified in that tuple. If it is due to a failure,
           <c>Reason</c> is the error reason.</p>
-        <p>If the gen_fsm is part of a supervision tree and is ordered
+        <p>If the genie_fsm is part of a supervision tree and is ordered
           by its supervisor to terminate, this function will be called
           with <c>Reason=shutdown</c> if the following conditions apply:</p>
         <list type="bulleted">
-          <item>the gen_fsm has been set to trap exit signals, and</item>
+          <item>the genie_fsm has been set to trap exit signals, and</item>
           <item>the shutdown strategy as defined in the supervisor's
            child specification is an integer timeout value, not
           <c>brutal_kill</c>.</item>
         </list>
-        <p>Even if the gen_fsm is <em>not</em> part of a supervision tree,
+        <p>Even if the genie_fsm is <em>not</em> part of a supervision tree,
 	   this function will be called if it receives an <c>'EXIT'</c>
 	   message from its parent. <c>Reason</c> will be the same as in
 	   the <c>'EXIT'</c> message.</p>
-        <p>Otherwise, the gen_fsm will be immediately terminated.</p>
+        <p>Otherwise, the genie_fsm will be immediately terminated.</p>
         <p>Note that for any other reason than <c>normal</c>,
-          <c>shutdown</c>, or <c>{shutdown,Term}</c> the gen_fsm is
+          <c>shutdown</c>, or <c>{shutdown,Term}</c> the genie_fsm is
 	  assumed to terminate due to an error and
 	  an error report is issued using
           <seealso marker="kernel:error_logger#format/2">error_logger:format/2</seealso>.</p>
@@ -725,7 +725,7 @@ gen_fsm:sync_send_all_state_event -----> Module:handle_sync_event/4
         <v>Extra = term()</v>
       </type>
       <desc>
-        <p>This function is called by a gen_fsm when it should update
+        <p>This function is called by a genie_fsm when it should update
           its internal state data during a release upgrade/downgrade,
           i.e. when the instruction <c>{update,Module,Change,...}</c>
           where <c>Change={advanced,Extra}</c> is given in
@@ -738,7 +738,7 @@ gen_fsm:sync_send_all_state_event -----> Module:handle_sync_event/4
           <c>Module</c>. If no such attribute is defined, the version is
           the checksum of the BEAM file.</p>
         <p><c>StateName</c> is the current state name and
-          <c>StateData</c> the internal state data of the gen_fsm.</p>
+          <c>StateData</c> the internal state data of the genie_fsm.</p>
         <p><c>Extra</c> is passed as-is from the <c>{advanced,Extra}</c>
           part of the update instruction.</p>
         <p>The function should return the new current state name and
@@ -748,7 +748,7 @@ gen_fsm:sync_send_all_state_event -----> Module:handle_sync_event/4
     <func>
       <name>Module:format_status(Opt, [PDict, StateData]) -> Status</name>
       <fsummary>Optional function for providing a term describing the
-        current gen_fsm status.</fsummary>
+        current genie_fsm status.</fsummary>
       <type>
         <v>Opt = normal | terminate</v>
         <v>PDict = [{Key, Value}]</v>
@@ -758,40 +758,40 @@ gen_fsm:sync_send_all_state_event -----> Module:handle_sync_event/4
       <desc>
         <note>
           <p>This callback is optional, so callback modules need not
-            export it. The gen_fsm module provides a default
+            export it. The genie_fsm module provides a default
             implementation of this function that returns the callback
             module state data.</p>
         </note>
-        <p>This function is called by a gen_fsm process when:</p>
+        <p>This function is called by a genie_fsm process when:</p>
         <list typed="bulleted">
           <item>One
             of <seealso marker="sys#get_status/1">sys:get_status/1,2</seealso>
-            is invoked to get the gen_fsm status. <c>Opt</c> is set to
+            is invoked to get the genie_fsm status. <c>Opt</c> is set to
             the atom <c>normal</c> for this case.</item>
-          <item>The gen_fsm terminates abnormally and logs an
+          <item>The genie_fsm terminates abnormally and logs an
             error. <c>Opt</c> is set to the atom <c>terminate</c> for
             this case.</item>
         </list>
         <p>This function is useful for customising the form and
-          appearance of the gen_fsm status for these cases. A callback
+          appearance of the genie_fsm status for these cases. A callback
           module wishing to customise the <c>sys:get_status/1,2</c>
           return value as well as how its status appears in
           termination error logs exports an instance
           of <c>format_status/2</c> that returns a term describing the
-          current status of the gen_fsm.</p>
-        <p><c>PDict</c> is the current value of the gen_fsm's
+          current status of the genie_fsm.</p>
+        <p><c>PDict</c> is the current value of the genie_fsm's
           process dictionary.</p>
         <p><c>StateData</c> is the internal state data of the
-          gen_fsm.</p>
+          genie_fsm.</p>
         <p>The function should return <c>Status</c>, a term that
           customises the details of the current state and status of
-          the gen_fsm. There are no restrictions on the
+          the genie_fsm. There are no restrictions on the
           form <c>Status</c> can take, but for
           the <c>sys:get_status/1,2</c> case (when <c>Opt</c>
           is <c>normal</c>), the recommended form for
           the <c>Status</c> value is <c>[{data, [{"StateData",
           Term}]}]</c> where <c>Term</c> provides relevant details of
-          the gen_fsm state data. Following this recommendation isn't
+          the genie_fsm state data. Following this recommendation isn't
           required, but doing so will make the callback module status
           consistent with the rest of the <c>sys:get_status/1,2</c>
           return value.</p>
@@ -804,8 +804,8 @@ gen_fsm:sync_send_all_state_event -----> Module:handle_sync_event/4
 
   <section>
     <title>SEE ALSO</title>
-    <p><seealso marker="gen_event">gen_event(3)</seealso>,
-      <seealso marker="gen_server">gen_server(3)</seealso>,
+    <p><seealso marker="genie_event">genie_event(3)</seealso>,
+      <seealso marker="genie_server">genie_server(3)</seealso>,
       <seealso marker="supervisor">supervisor(3)</seealso>,
       <seealso marker="proc_lib">proc_lib(3)</seealso>,
       <seealso marker="sys">sys(3)</seealso></p>
