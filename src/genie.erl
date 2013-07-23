@@ -58,8 +58,7 @@
 %% `Options' are the options passed as the final argument to `start/5,6'. These
 %% determine how the process should be spawned, how long to wait for
 %% initialising to complete and the debug options for the process. To get the
-%% debug options to be used with the `sys' module `debug_options(Options)' is
-%% used.
+%% debug options to be used with the `sys' module `debug_options/1,2' is used.
 %%
 %% An example with detailed inline comments, called `genie_basic', can be found
 %% in the `examples' directory. It shows how to deal with system messages and
@@ -72,7 +71,8 @@
 %% API
 -export([start/5, start/6,
 	 call/3, call/4, reply/2,
-	 debug_options/1, format_status_header/2]).
+	 debug_options/1, debug_options/2,
+	 format_status_header/2]).
 
 %% Internal exports
 -export([init_it/6, init_it/7]).
@@ -152,7 +152,7 @@ start(GenMod, LinkP, Mod, Args, Options) ->
 %%
 %% The option `{debug, DebugFlags}' should be used by the GenMod to make use of
 %% `sys:handle_debug/4'. `DebugFlags' is a list of terms to be passed to
-%% `debug_options/1', which creates the `sys' debug options to be used with
+%% `debug_options/1,2', which creates the `sys' debug options to be used with
 %% `sys:handle_debug/4'.
 %%
 %% The option `{spawn_opts, SpawnOpts}' will cause `SpawnOpts' to be passed as
@@ -161,7 +161,7 @@ start(GenMod, LinkP, Mod, Args, Options) ->
 %% @see sys:handle_system_msg/6
 %% @see proc_lib:start_link/5
 %% @see proc_lib:init_ack/2
-%% @see debug_options/1
+%% @see debug_options/2
 %% @see sys:handle_debug/4
 
 -spec start(GenMod :: module(), LinkP :: linkage(), Name :: emgr_name(),
@@ -312,22 +312,35 @@ reply({To, Tag}, Reply) when is_pid(To) ->
 
 %% @doc Get the sys debug structure from genie options.
 %%
-%% The returned list is
-%% ready too use with `sys:handle_debug/4'. Note that an empty list means no
-%% debugging and calls to `sys:handle_debug' can be skipped, otherwise the term
-%% is opaque.
-%%
-%% @see sys:debug_options/1
-%% @see sys:handle_debug/4
-%% @see start/6
+%% @equiv debug_options(self(), Options)
 
 -spec debug_options(Options) -> [sys:dbg_opt()] when
       Options :: options().
 
-debug_options(Opts) ->
-    case opt(debug, Opts) of
-	{ok, Options} -> sys:debug_options(Options);
-	_ -> []
+debug_options(Options) ->
+    debug_options(self(), Options).
+
+%% @doc Get the sys debug structure from genie options.
+%%
+%% The returned list is ready too use with `sys:handle_debug/4'. Note that an
+%% empty list means no debugging and calls to `sys:handle_debug' can be skipped,
+%% otherwise the term is opaque.
+%%
+%% `Name' is the name used to identify a process when formatting an error.
+%%
+%% @see sys:debug_options/1
+%% @see sys:handle_debug/4
+%% @see start/6
+-spec debug_options(Name , Options) -> [sys:dbg_opt()] when
+      Name :: term(),
+      Options :: options().
+
+debug_options(Name, Options) ->
+    case opt(debug, Options) of
+	{ok, DebugFlags} ->
+	    debug_flags(Name, DebugFlags);
+	_Other ->
+	    debug_flags(Name, [])
     end.
 
 %% @doc Format the header for the `format_status/2' callback used by the `sys'
@@ -541,6 +554,34 @@ spawn_opts(Options) ->
 	    Opts;
 	_ ->
 	    []
+    end.
+
+debug_flags(Name, []) ->
+    DebugOpts =
+	case init:get_argument(generic_debug) of
+	    error ->
+		[];
+	    _ ->
+		[log, statistics]
+	end,
+    sys_debug_options(Name, DebugOpts);
+debug_flags(Name, DebugFlags) ->
+    Fun = fun(debug, Acc) ->
+		  [statistics, log | Acc];
+	     (Other, Acc) ->
+		  [Other | Acc]
+	  end,
+    DebugOpts = lists:reverse(lists:foldl(Fun, [], DebugFlags)),
+    sys_debug_options(Name, DebugOpts).
+
+sys_debug_options(Name, DebugOpts) ->
+    case catch sys:debug_options(DebugOpts) of
+	{'EXIT',_} ->
+	    error_logger:format("~p: ignoring erroneous debug options - ~p~n",
+		   [Name, DebugOpts]),
+	    [];
+	Debug ->
+	    Debug
     end.
 
 opt(Op, [{Op, Value}|_]) ->

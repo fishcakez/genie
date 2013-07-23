@@ -282,7 +282,7 @@ enter_loop(Mod, Options, State, Timeout) ->
 enter_loop(Mod, Options, State, ServerName, Timeout) ->
     Name = get_proc_name(ServerName),
     Parent = get_parent(),
-    Debug = debug_options(Name, Options),
+    Debug = genie:debug_options(Name, Options),
     loop(Parent, Name, State, Mod, Timeout, Debug).
 
 %%%========================================================================
@@ -300,7 +300,7 @@ init_it(Starter, self, Name, Mod, Args, Options) ->
     init_it(Starter, self(), Name, Mod, Args, Options);
 init_it(Starter, Parent, Name0, Mod, Args, Options) ->
     Name = name(Name0),
-    Debug = debug_options(Name, Options),
+    Debug = genie:debug_options(Name, Options),
     case catch Mod:init(Args) of
 	{ok, State} ->
 	    proc_lib:init_ack(Starter, {ok, self()}), 	    
@@ -779,41 +779,6 @@ error_info(Reason, Name, Msg, State, Debug) ->
 %%% ---------------------------------------------------
 %%% Misc. functions.
 %%% ---------------------------------------------------
-
-opt(Op, [{Op, Value}|_]) ->
-    {ok, Value};
-opt(Op, [_|Options]) ->
-    opt(Op, Options);
-opt(_, []) ->
-    false.
-
-debug_options(Name, Opts) ->
-    case opt(debug, Opts) of
-	{ok, Options} -> dbg_options(Name, Options);
-	_ -> dbg_options(Name, [])
-    end.
-
-dbg_options(Name, []) ->
-    Opts = 
-	case init:get_argument(generic_debug) of
-	    error ->
-		[];
-	    _ ->
-		[log, statistics]
-	end,
-    dbg_opts(Name, Opts);
-dbg_options(Name, Opts) ->
-    dbg_opts(Name, Opts).
-
-dbg_opts(Name, Opts) ->
-    case catch sys:debug_options(Opts) of
-	{'EXIT',_} ->
-	    format("~p: ignoring erroneous debug options - ~p~n",
-		   [Name, Opts]),
-	    [];
-	Dbg ->
-	    Dbg
-    end.
 
 get_proc_name(Pid) when is_pid(Pid) ->
     Pid;

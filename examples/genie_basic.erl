@@ -124,7 +124,7 @@ init_it(Starter, self, Name, Mod, Args, Options) ->
 init_it(Starter, Parent, Name, Mod, Args, Options) ->
     %% Get the sys debug structure to use `sys:handle_debug/4'. Note that genie
     %% debug options have an extra flag that `sys:debug_options/1' does not
-    %% have, so `genie:debug_options/1' should always be used.
+    %% have, so `genie:debug_options/1,2' should always be used.
     Debug = genie:debug_options(Options),
     %% `case catch' allows `Mod:init/1' to use `throw/1' to return a value, such
     %% as `{stop, Reason}'. `try [... of] ... catch' can also be used. A generic

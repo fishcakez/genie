@@ -290,7 +290,7 @@ enter_loop(Mod, Options, StateName, StateData, Timeout) ->
 enter_loop(Mod, Options, StateName, StateData, ServerName, Timeout) ->
     Name = get_proc_name(ServerName),
     Parent = get_parent(),
-    Debug = genie:debug_options(Options),
+    Debug = genie:debug_options(Name, Options),
     loop(Parent, Name, StateName, StateData, Mod, Timeout, Debug).
 
 get_proc_name(Pid) when is_pid(Pid) ->
@@ -357,7 +357,7 @@ init_it(Starter, self, Name, Mod, Args, Options) ->
     init_it(Starter, self(), Name, Mod, Args, Options);
 init_it(Starter, Parent, Name0, Mod, Args, Options) ->
     Name = name(Name0),
-    Debug = genie:debug_options(Options),
+    Debug = genie:debug_options(Name, Options),
     case catch Mod:init(Args) of
 	{ok, StateName, StateData} ->
 	    proc_lib:init_ack(Starter, {ok, self()}), 	    
