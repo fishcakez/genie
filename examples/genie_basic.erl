@@ -141,12 +141,12 @@ init_it(Starter, Parent, Name, Mod, Args, Options) ->
     %% callback.
     case catch Mod:init(Args) of
 	{ok, State} ->
-	    %% `proc_lib:init_ack/2' should always be called once initialisation
+	    %% `genie:init_ack/2' should always be called once initialisation
 	    %% has finished - even in the case of failure. The process that
 	    %% called `start_link/3,4' blocks until it receives the
 	    %% acknowledgement. `start_link/3,4' returns the second argument, in
 	    %% this case `{ok, self()}'.
-	    proc_lib:init_ack(Starter, {ok, self()}),
+	    genie:init_ack(Starter, {ok, self()}),
 	    loop(Parent, Name, Mod, State, Debug);
 	%% The standard return value when an expected error has occured. Note
 	%% that there is no need for the callbacks to employ defensive
@@ -154,29 +154,29 @@ init_it(Starter, Parent, Name, Mod, Args, Options) ->
 	%% behaviour.
 	{stop, Reason} ->
 	    %% It is important to unregister the process before calling
-	    %% `proc_lib:init_ack/2' because a supervisor may try to restart a
+	    %% `genie:init_ack/2' because a supervisor may try to restart a
 	    %% process on receiving the acknowledgment and fail with
 	    %% `{error, {already_started, Pid}}'.
 	    unregister_name(Name),
-	    proc_lib:init_ack(Starter, {error, Reason}),
+	    genie:init_ack(Starter, {error, Reason}),
 	    exit(Reason);
 	%% Sometimes there is no error but the process should not continue, in
 	%% in this case `ignore' is used. Note that the process exits with
 	%% reason `normal'.
 	ignore ->
 	    unregister_name(Name),
-	    proc_lib:init_ack(Starter, ignore),
+	    genie:init_ack(Starter, ignore),
 	    exit(normal);
 	%% An error occured in `Mod:init/1'.
 	{'EXIT', Reason} ->
 	    unregister_name(Name),
-	    proc_lib:init_ack(Starter, {error, Reason}),
+	    genie:init_ack(Starter, {error, Reason}),
 	    exit(Reason);
 	%% Some went wrong. A generic behaviour should handle invalid return
 	%% values from its callback by exiting with `{bad_return_value, Other}'.
 	Other ->
 	    Reason = {bad_return_value, Other},
-	    proc_lib:init_ack(Starter, {error, Reason}),
+	    genie:init_ack(Starter, {error, Reason}),
 	    exit(Reason)
     end.
 

@@ -28,14 +28,8 @@
 %%
 %% As part of its initialising `GenMod' calls `Mod:init(Args)' to setup a state
 %% for the callback module. Based on the returned value of `Mod:init/1'
-%% `GenMod' must call `proc_lib:init_ack(Starter, Return)' to acknowledge the
-%% result. A success will have Return as `{ok, self()}'. In the case of
-%% failure `Return' is of the form `{error, Reason}' where `Reason' can be any
-%% term, the process then exits with the same reason by calling `exit(Reason)'.
-%% If no error occured but the process is going to exit immediately
-%% (with reason `normal'), `Return' is the atom `ignore'. Note that the caller
-%% of `start/5,6' blocks until it receives the acknowledgment sent by
-%% `proc_lib:init_ack/2'.
+%% `GenMod' must call `init_ack(Starter, Return)' to acknowledge the
+%% result.
 %%
 %% `Starter' is the pid of the process that called `start/5,6'.
 %%
@@ -69,7 +63,7 @@
 -compile({inline,[get_node/1]}).
 
 %% API
--export([start/5, start/6,
+-export([start/5, start/6, init_ack/2,
 	 call/3, call/4, reply/2,
 	 debug_options/1, debug_options/2,
 	 format_status_header/2]).
@@ -160,7 +154,7 @@ start(GenMod, LinkP, Mod, Args, Options) ->
 %%
 %% @see sys:handle_system_msg/6
 %% @see proc_lib:start_link/5
-%% @see proc_lib:init_ack/2
+%% @see init_ack/2
 %% @see debug_options/2
 %% @see sys:handle_debug/4
 
@@ -174,6 +168,28 @@ start(GenMod, LinkP, Name, Mod, Args, Options) ->
 	Pid ->
 	    {error, {already_started, Pid}}
     end.
+
+%% @doc Informs the caller of `start/5,6' that the spawned process has finished
+%% its initialisation.
+%%
+%% `Starter' is the first argument passed to `GenMod:init_it/6'.
+%%
+%% A success will have `Return' as `{ok, self()}'. In the case of failure
+%% `Return' is of the form `{error, Reason}' where `Reason' can be any term, the
+%% process then exits with the same reason by calling `exit(Reason)'. If no
+%% error occured but the process is going to exit immediately (with reason
+%% `normal'), `Return' is the atom `ignore'.
+%%
+%% Note that the caller of `start/5,6' blocks until it receives the
+%% acknowledgment sent by `init_ack/2'.
+%%
+%% @see proc_lib:init_ack/2
+
+-spec init_ack(Starter, Return) -> ok when
+      Starter :: pid(),
+      Return :: start_ret().
+init_ack(Starter, Return) ->
+    proc_lib:init_ack(Starter, Return).
 
 %% @doc Makes a synchronous call to a generic process.
 %%

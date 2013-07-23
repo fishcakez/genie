@@ -303,10 +303,10 @@ init_it(Starter, Parent, Name0, Mod, Args, Options) ->
     Debug = genie:debug_options(Name, Options),
     case catch Mod:init(Args) of
 	{ok, State} ->
-	    proc_lib:init_ack(Starter, {ok, self()}), 	    
+	    genie:init_ack(Starter, {ok, self()}), 	    
 	    loop(Parent, Name, State, Mod, infinity, Debug);
 	{ok, State, Timeout} ->
-	    proc_lib:init_ack(Starter, {ok, self()}), 	    
+	    genie:init_ack(Starter, {ok, self()}), 	    
 	    loop(Parent, Name, State, Mod, Timeout, Debug);
 	{stop, Reason} ->
 	    %% For consistency, we must make sure that the
@@ -316,19 +316,19 @@ init_it(Starter, Parent, Name0, Mod, Args, Options) ->
 	    %% an 'already_started' error if it immediately
 	    %% tried starting the process again.)
 	    unregister_name(Name0),
-	    proc_lib:init_ack(Starter, {error, Reason}),
+	    genie:init_ack(Starter, {error, Reason}),
 	    exit(Reason);
 	ignore ->
 	    unregister_name(Name0),
-	    proc_lib:init_ack(Starter, ignore),
+	    genie:init_ack(Starter, ignore),
 	    exit(normal);
 	{'EXIT', Reason} ->
 	    unregister_name(Name0),
-	    proc_lib:init_ack(Starter, {error, Reason}),
+	    genie:init_ack(Starter, {error, Reason}),
 	    exit(Reason);
 	Else ->
 	    Error = {bad_return_value, Else},
-	    proc_lib:init_ack(Starter, {error, Error}),
+	    genie:init_ack(Starter, {error, Error}),
 	    exit(Error)
     end.
 

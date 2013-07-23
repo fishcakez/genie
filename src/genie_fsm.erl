@@ -360,26 +360,26 @@ init_it(Starter, Parent, Name0, Mod, Args, Options) ->
     Debug = genie:debug_options(Name, Options),
     case catch Mod:init(Args) of
 	{ok, StateName, StateData} ->
-	    proc_lib:init_ack(Starter, {ok, self()}), 	    
+	    genie:init_ack(Starter, {ok, self()}), 	    
 	    loop(Parent, Name, StateName, StateData, Mod, infinity, Debug);
 	{ok, StateName, StateData, Timeout} ->
-	    proc_lib:init_ack(Starter, {ok, self()}), 	    
+	    genie:init_ack(Starter, {ok, self()}), 	    
 	    loop(Parent, Name, StateName, StateData, Mod, Timeout, Debug);
 	{stop, Reason} ->
 	    unregister_name(Name0),
-	    proc_lib:init_ack(Starter, {error, Reason}),
+	    genie:init_ack(Starter, {error, Reason}),
 	    exit(Reason);
 	ignore ->
 	    unregister_name(Name0),
-	    proc_lib:init_ack(Starter, ignore),
+	    genie:init_ack(Starter, ignore),
 	    exit(normal);
 	{'EXIT', Reason} ->
 	    unregister_name(Name0),
-	    proc_lib:init_ack(Starter, {error, Reason}),
+	    genie:init_ack(Starter, {error, Reason}),
 	    exit(Reason);
 	Else ->
 	    Error = {bad_return_value, Else},
-	    proc_lib:init_ack(Starter, {error, Error}),
+	    genie:init_ack(Starter, {error, Error}),
 	    exit(Error)
     end.
 
