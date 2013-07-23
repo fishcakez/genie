@@ -85,8 +85,16 @@
 
 -type start_ret()   :: {'ok', pid()} | 'ignore' | {'error', term()}.
 
+-type system_event() :: {'in', Msg :: term()}
+		      | {'in', Msg :: term(), From :: term()}
+		      | {'out', Msg :: term(), To :: term()}
+		      | term().
 -type debug_flag()  :: 'trace' | 'log' | 'statistics' | 'debug'
-                     | {'logfile', string()}.
+		     | {'log', pos_integer()} | {'logfile', string()}
+		     | {install, {fun((DbgFunState :: term(),
+				       Event :: system_event(),
+				       Misc :: term()) ->
+					done | (DbgFunState2 :: term()))}}.
 -type option()      :: {'timeout', timeout()}
 		     | {'debug', [debug_flag()]}
 		     | {'spawn_opt', [proc_lib:spawn_option()]}.
@@ -145,9 +153,10 @@ start(GenMod, LinkP, Mod, Args, Options) ->
 %% initialise within `Timeout' and `{error, timeout}' will be returned.
 %%
 %% The option `{debug, DebugFlags}' should be used by the GenMod to make use of
-%% `sys:handle_debug/4'. `DebugFlags' is a list of terms to be passed to
-%% `debug_options/1,2', which creates the `sys' debug options to be used with
-%% `sys:handle_debug/4'.
+%% `sys:handle_debug/4'. `DebugFlags' is a list of options that can be passed
+%% to `sys:debug_options', with an extra flag `debug' that represents both `log'
+%% and `statistics'. `Options' should be passed to `debug_options/1,2', which
+%% creates the `sys' debug options to be used with `sys:handle_debug/4'.
 %%
 %% The option `{spawn_opts, SpawnOpts}' will cause `SpawnOpts' to be passed as
 %% the spawn options to the relevant `proc_lib' spawn function.
@@ -343,6 +352,8 @@ debug_options(Options) ->
 %% otherwise the term is opaque.
 %%
 %% `Name' is the name used to identify a process when formatting an error.
+%%
+%% `Options' should be the last argument passed to `GenMod:init_it/6'.
 %%
 %% @see sys:debug_options/1
 %% @see sys:handle_debug/4
