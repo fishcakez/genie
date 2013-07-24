@@ -20,8 +20,9 @@
 %% @doc This module implements the really generic stuff for generic or
 %% user defined behaviours that adhere to OTP design principles.
 %%
-%% The genie behaviour requires one export `init_it/6', after spawning and
-%% successfuly registring a process using `start/5,6' it will be called as
+%% The genie behaviour requires two callbacks. The first, `init_it/6', is called
+%% after spawning and successfuly registring a process using `start/5,6' it will
+%% be called as
 %% `GenMod:init_it(Starter, Parent, Name, Mod, Args, Options)'. This
 %% function carries out the initialising of the generic module `GenMod' and its
 %% callback module `Mod'.
@@ -31,7 +32,8 @@
 %% `GenMod' must call `init_ack(Starter, Return)' to acknowledge the
 %% result.
 %%
-%% `Starter' is the pid of the process that called `start/5,6'.
+%% `Starter' is an opaque term that contains the pid of the process that called
+%% `start/5,6'. The pid can be retrieved using `starter_process/1'.
 %%
 %% `Parent' is also the pid of the process that called `start/5,6' if
 %% the spawned process is linked (the second argument, `LinkP', is `link'). If
@@ -54,6 +56,14 @@
 %% initialising to complete and the debug options for the process. To get the
 %% debug options to be used with the `sys' module `debug_options/1,2' is used.
 %%
+%% The second callback is `async_timeout_info/4', which is called by a timer
+%% process when the main process takes too long initialising. It is called as
+%% `GenMod:async_timeout_info(Name, Mod, Args, Debug)'. The first three terms
+%% are the same as above. The final term, `Debug', is the result of calling
+%% `debug_options/2' on the `Options' passed to `start/5,6'. This `Debug' value
+%% may be different to one used by the behaviour process if it is altered
+%% during initialisation.
+%%
 %% An example with detailed inline comments, called `genie_basic', can be found
 %% in the `examples' directory. It shows how to deal with system messages and
 %% the other features of the `sys' module.
@@ -65,11 +75,12 @@
 %% API
 -export([start/5, start/6, init_ack/2,
 	 call/3, call/4, reply/2,
+	 starter_mode/1, starter_process/1,
 	 debug_options/1, debug_options/2,
 	 format_status_header/2]).
 
 %% Internal exports
--export([init_it/6, init_it/7]).
+-export([init_it/7, init_it/8]).
 
 -define(default_timeout, 5000).
 
@@ -82,6 +93,8 @@
 		     | {via, module(), via_name()}.
 
 -type parent()      :: pid() | self.
+
+-opaque starter()   :: pid() | {async, pid(), undefined | pid()}.
 
 -type start_ret()   :: {'ok', pid()} | 'ignore' | {'error', term()}.
 
@@ -97,20 +110,25 @@
 					done | (DbgFunState2 :: term()))}}.
 -type option()      :: {'timeout', timeout()}
 		     | {'debug', [debug_flag()]}
-		     | {'spawn_opt', [proc_lib:spawn_option()]}.
+		     | {'spawn_opt', [proc_lib:spawn_option()]}
+		     | {'async', timeout()}.
 -type options()     :: [option()].
 
 -opaque tag()      :: reference().
 
--export_type([emgr_name/0, options/0, tag/0]).
+-export_type([emgr_name/0, starter/0, options/0, tag/0]).
 
 %%%=========================================================================
 %%%  API
 %%%=========================================================================
 
--callback init_it(Starter :: pid(), Parent :: parent(), Name :: emgr_name(),
-		  Mod :: module(), Args :: term(), Options :: options()) ->
+-callback init_it(Starter :: starter(), Parent :: parent(),
+		  Name :: emgr_name(), Mod :: module(), Args :: term(),
+		  Options :: options()) ->
     no_return().
+-callback async_timeout_info(Name :: emgr_name() | pid(), Mod :: module(),
+			     Args :: term(), Debug :: [sys:dbg_opt()]) ->
+    term().
 
 %% @doc Starts a generic process.
 %%
@@ -122,7 +140,8 @@
 -spec start(module(), linkage(), module(), term(), options()) -> start_ret().
 
 start(GenMod, LinkP, Mod, Args, Options) ->
-    do_spawn(GenMod, LinkP, Mod, Args, Options).
+    AsyncTimeout = async_timeout(Options),
+    do_spawn(GenMod, LinkP, Mod, Args, Options, AsyncTimeout).
 
 %% @doc Starts a generic process.
 %%
@@ -173,7 +192,8 @@ start(GenMod, LinkP, Mod, Args, Options) ->
 start(GenMod, LinkP, Name, Mod, Args, Options) ->
     case where(Name) of
 	undefined ->
-	    do_spawn(GenMod, LinkP, Name, Mod, Args, Options);
+	    AsyncTimeout = async_timeout(Options),
+	    do_spawn(GenMod, LinkP, Name, Mod, Args, Options, AsyncTimeout);
 	Pid ->
 	    {error, {already_started, Pid}}
     end.
@@ -195,10 +215,52 @@ start(GenMod, LinkP, Name, Mod, Args, Options) ->
 %% @see proc_lib:init_ack/2
 
 -spec init_ack(Starter, Return) -> ok when
-      Starter :: pid(),
+      Starter :: starter(),
       Return :: start_ret().
-init_ack(Starter, Return) ->
-    proc_lib:init_ack(Starter, Return).
+init_ack(Starter, Return) when is_pid(Starter) ->
+    proc_lib:init_ack(Starter, Return);
+init_ack({async, _Starter, AsyncTimer}, _Return) when is_pid(AsyncTimer) ->
+    MonRef = erlang:monitor(process, AsyncTimer),
+    AsyncTimer ! {ack, self()},
+    unlink(AsyncTimer),
+    Reason2 = receive
+		  {'EXIT', AsyncTimer, Reason} ->
+		      Reason
+	      after
+		  0 ->
+		      noproc
+	      end,
+    receive
+	{'DOWN', MonRef, _, _, normal} ->
+	    ok;
+	%% AsyncTimer died before monitor/2 call.
+	{'DOWN', MonRef, _, _, noproc} ->
+	    exit(Reason2);
+	%% AsyncTimer's code failed or it was killed.
+	{'DOWN', MonRef, _, _, Reason3} ->
+	    exit(Reason3)
+    end;
+%% async with infinity timeout.
+init_ack(_Starter, _Return) ->
+    ok.
+
+%% @doc Get the mode of initialisation a starter used.
+-spec starter_mode(Starter) -> StarterMode when
+      Starter :: starter(),
+      StarterMode :: sync | async.
+starter_mode(Pid) when is_pid(Pid) ->
+    sync;
+starter_mode({async, _, _}) ->
+    async.
+
+%% @doc Get the starter's pid from the opaque starter term.
+-spec starter_process(Starter) -> Pid when
+      Starter :: starter(),
+      Pid :: pid().
+starter_process(Pid) when is_pid(Pid) ->
+    Pid;
+starter_process({async, Pid, _}) when is_pid(Pid) ->
+    Pid.
 
 %% @doc Makes a synchronous call to a generic process.
 %%
@@ -365,9 +427,9 @@ debug_options(Options) ->
 debug_options(Name, Options) ->
     case opt(debug, Options) of
 	{ok, DebugFlags} ->
-	    debug_flags(Name, DebugFlags);
+	    debug_flags(Name, DebugFlags, format);
 	_Other ->
-	    debug_flags(Name, [])
+	    debug_flags(Name, [], format)
     end.
 
 %% @doc Format the header for the `format_status/2' callback used by the `sys'
@@ -409,14 +471,19 @@ format_status_header(TagLine, RegName) ->
 %% loop is entered.
 %%-----------------------------------------------------------------
 %% @private
-init_it(GenMod, Starter, Parent, Mod, Args, Options) ->
-    init_it2(GenMod, Starter, Parent, self(), Mod, Args, Options).
+init_it(GenMod, Starter, Parent, Mod, Args, Options, AsyncTimeout) ->
+    init_it2(GenMod, Starter, Parent, self(), Mod, Args, Options, AsyncTimeout).
 
 %% @private
-init_it(GenMod, Starter, Parent, Name, Mod, Args, Options) ->
+init_it(GenMod, Starter, Parent, Name, Mod, Args, Options, AsyncTimeout) ->
     case name_register(Name) of
+	true when AsyncTimeout =:= false ->
+	    init_it2(GenMod, Starter, Parent, Name, Mod, Args, Options,
+		     AsyncTimeout);
 	true ->
-	    init_it2(GenMod, Starter, Parent, Name, Mod, Args, Options);
+	    proc_lib:init_ack(Starter, {ok, self()}),
+	    init_it2(GenMod, Starter, Parent, Name, Mod, Args, Options,
+		     AsyncTimeout);
 	{false, Pid} ->
 	    proc_lib:init_ack(Starter, {error, {already_started, Pid}})
     end.
@@ -433,34 +500,72 @@ init_it(GenMod, Starter, Parent, Name, Mod, Args, Options) ->
 %% Spawn the process (and link) maybe at another node.
 %% If spawn without link, set parent to ourselves 'self'!!!
 %%-----------------------------------------------------------------
-do_spawn(GenMod, link, Mod, Args, Options) ->
+do_spawn(GenMod, link, Mod, Args, Options, false) ->
     Time = timeout(Options),
     proc_lib:start_link(?MODULE, init_it,
-			[GenMod, self(), self(), Mod, Args, Options], 
+			[GenMod, self(), self(), Mod, Args, Options, false], 
 			Time,
 			spawn_opts(Options));
-do_spawn(GenMod, _, Mod, Args, Options) ->
+do_spawn(GenMod, link, Mod, Args, Options, AsyncTimeout) ->
+    Pid = proc_lib:spawn_opt(?MODULE, init_it,
+			     [GenMod, self(), self, Mod, Args, Options,
+			      AsyncTimeout], 
+			     [link | spawn_opts(Options)]),
+    {ok, Pid};
+do_spawn(GenMod, _, Mod, Args, Options, false) ->
     Time = timeout(Options),
     proc_lib:start(?MODULE, init_it,
-		   [GenMod, self(), self, Mod, Args, Options], 
+		   [GenMod, self(), self, Mod, Args, Options, false], 
+		   Time,
+		   spawn_opts(Options));
+do_spawn(GenMod, _, Mod, Args, Options, AsyncTimeout) ->
+    Pid = proc_lib:spawn_opt(?MODULE, init_it,
+			  [GenMod, self(), self, Mod, Args, Options,
+			   AsyncTimeout], 
+			  spawn_opts(Options)),
+    {ok, Pid}.
+
+do_spawn(GenMod, link, Name, Mod, Args, Options, AsyncTimeout) ->
+    Time = timeout(Options),
+    proc_lib:start_link(?MODULE, init_it,
+			[GenMod, self(), self(), Name, Mod, Args, Options,
+			 AsyncTimeout],
+			Time,
+			spawn_opts(Options));
+do_spawn(GenMod, _, Name, Mod, Args, Options, AsyncTimeout) ->
+    Time = timeout(Options),
+    proc_lib:start(?MODULE, init_it,
+		   [GenMod, self(), self, Name, Mod, Args, Options,
+		    AsyncTimeout], 
 		   Time,
 		   spawn_opts(Options)).
 
-do_spawn(GenMod, link, Name, Mod, Args, Options) ->
-    Time = timeout(Options),
-    proc_lib:start_link(?MODULE, init_it,
-			[GenMod, self(), self(), Name, Mod, Args, Options],
-			Time,
-			spawn_opts(Options));
-do_spawn(GenMod, _, Name, Mod, Args, Options) ->
-    Time = timeout(Options),
-    proc_lib:start(?MODULE, init_it,
-		   [GenMod, self(), self, Name, Mod, Args, Options], 
-		   Time,
-		   spawn_opts(Options)).
-
-init_it2(GenMod, Starter, Parent, Name, Mod, Args, Options) ->
-    GenMod:init_it(Starter, Parent, Name, Mod, Args, Options).
+init_it2(GenMod, Starter, Parent, Name, Mod, Args, Options, false) ->
+    GenMod:init_it(Starter, Parent, Name, Mod, Args, Options);
+init_it2(GenMod, Starter, Parent, Name, Mod, Args, Options, infinity) ->
+    NStarter = {async, Starter, undefined},
+    GenMod:init_it(NStarter, Parent, Name, Mod, Args, Options);
+init_it2(GenMod, Starter, Parent, Name, Mod, Args, Options, AsyncTimeout) ->
+    GenPid = self(),
+    AsyncTimer = spawn_link(
+		     fun() ->
+			     process_flag(trap_exit, true),
+			     receive
+				 {ack, GenPid} ->
+				     exit(normal);
+				 {'EXIT', GenPid, Reason} ->
+				     exit(Reason)
+			     after
+				 AsyncTimeout ->
+				     Debug = async_debug(Name, Options),
+				     async_timeout_info(GenMod, Name, Mod, Args,
+							Debug),
+				     exit(GenPid, kill),
+				     exit(timeout)
+			     end
+		     end),
+    NStarter = {async, Starter, AsyncTimer},
+    GenMod:init_it(NStarter, Parent, Name, Mod, Args, Options).
 
 %%% ---------------------------------------------------
 %%% Send/receive functions
@@ -566,6 +671,18 @@ name_register({via, Module, Name} = GN) ->
 	    {false, where(GN)}
     end.
 
+async_timeout(Options) ->
+    case opt(async, Options) of
+	{ok, infinity} ->
+	    infinity;
+	{ok, AsyncTimeout}
+	  when is_integer(AsyncTimeout) andalso AsyncTimeout >= 0 ->
+	    AsyncTimeout;
+	{ok, false} ->
+	    false;
+	_ ->
+	    false
+    end.
 
 timeout(Options) ->
     case opt(timeout, Options) of
@@ -583,7 +700,7 @@ spawn_opts(Options) ->
 	    []
     end.
 
-debug_flags(Name, []) ->
+debug_flags(Name, [], Format) ->
     DebugOpts =
 	case init:get_argument(generic_debug) of
 	    error ->
@@ -591,21 +708,23 @@ debug_flags(Name, []) ->
 	    _ ->
 		[log, statistics]
 	end,
-    sys_debug_options(Name, DebugOpts);
-debug_flags(Name, DebugFlags) ->
+    sys_debug_options(Name, DebugOpts, Format);
+debug_flags(Name, DebugFlags, Format) ->
     Fun = fun(debug, Acc) ->
 		  [statistics, log | Acc];
 	     (Other, Acc) ->
 		  [Other | Acc]
 	  end,
     DebugOpts = lists:reverse(lists:foldl(Fun, [], DebugFlags)),
-    sys_debug_options(Name, DebugOpts).
+    sys_debug_options(Name, DebugOpts, Format).
 
-sys_debug_options(Name, DebugOpts) ->
+sys_debug_options(Name, DebugOpts, Format) ->
     case catch sys:debug_options(DebugOpts) of
-	{'EXIT',_} ->
+	{'EXIT',_}  when Format =:= format ->
 	    error_logger:format("~p: ignoring erroneous debug options - ~p~n",
 		   [Name, DebugOpts]),
+	    [];
+	{'EXIT',_} when Format =:= noformat ->
 	    [];
 	Debug ->
 	    Debug
@@ -617,3 +736,15 @@ opt(Op, [_|Options]) ->
     opt(Op, Options);
 opt(_, []) ->
     false.
+
+async_debug(Name, Options) ->
+    case opt(debug, Options) of
+	{ok, DebugFlags} ->
+	    debug_flags(Name, DebugFlags, noformat);
+	_Other ->
+	    debug_flags(Name, [], noformat)
+    end.
+
+async_timeout_info(GenMod, Name, Mod, Args, Debug) ->
+    _ = (catch GenMod:async_timeout_info(Name, Mod, Args, Debug)),
+    ok.

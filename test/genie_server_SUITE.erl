@@ -35,6 +35,9 @@
 	 error_format_status/1, get_state/1, replace_state/1, call_with_huge_message_queue/1
 	]).
 
+%% async tests
+-export([async_start/1, async_stop/1, async_exit/1, async_timer_timeout/1]).
+
 % spawn export
 -export([spec_init_local/2, spec_init_global/2, spec_init_via/2,
 	 spec_init_default_timeout/2, spec_init_global_default_timeout/2,
@@ -56,10 +59,10 @@ all() ->
      spec_init_global_registered_parent, otp_5854, hibernate,
      otp_7669, call_format_status, error_format_status,
      get_state, replace_state,
-     call_with_huge_message_queue].
+     call_with_huge_message_queue, {group, async}].
 
 groups() -> 
-    [].
+    [{async, [], [async_start, async_stop, async_exit, async_timer_timeout]}].
 
 init_per_suite(Config) ->
     Config.
@@ -1130,6 +1133,293 @@ echo_loop() ->
 	    echo_loop()
     end.
 
+%% async tests
+
+async_start(_) ->
+    OldFl = process_flag(trap_exit, true),
+
+    %% anonymous
+    ?line {ok, Pid0} = genie_server:start(genie_server_SUITE, [],
+					  [{async, infinity}]),
+    ?line ok = genie_server:call(Pid0, started_p),
+    ?line ok = genie_server:call(Pid0, stop),
+    ?line busy_wait_for_process(Pid0,600),
+    ?line {'EXIT', {noproc,_}} = (catch genie_server:call(Pid0, started_p, 1)),
+
+    %% anonymous with timeout
+    ?line {ok, Pid00} = genie_server:start(genie_server_SUITE, [],
+					 [{timeout,1000}, {async, infinity}]),
+    ?line ok = genie_server:call(Pid00, started_p),
+    ?line ok = genie_server:call(Pid00, stop),
+    ?line {ok, Pid01} = genie_server:start(genie_server_SUITE, sleep,
+					      [{timeout,0}, {async, infinity}]),
+    ?line ok = genie_server:call(Pid01, started_p),
+    ?line ok = genie_server:call(Pid01, stop),
+
+    %% anonymous with ignore
+    ?line {ok, Pid02} = genie_server:start_link(genie_server_SUITE, ignore,
+					   [{async, infinity}]),
+    ?line receive
+	      {'EXIT', Pid02, normal} ->
+		  ok
+	  after 5000 ->
+		    test_server:fail(not_stopped)
+	  end,
+
+    %% anonymous with stop
+    ?line {ok, Pid03} = genie_server:start(genie_server_SUITE, stop,
+					   [{async, infinity}]),
+    ?line ok = busy_wait_for_process(Pid03, 600),
+
+    %% anonymous with timer
+    ?line {ok, Pid04} = genie_server:start(genie_server_SUITE, [],
+					  [{async, 1000}]),
+    ?line ok = genie_server:call(Pid04, started_p),
+    ?line ok = genie_server:call(Pid04, stop),
+
+    %% anonymous linked
+    ?line {ok, Pid1} =
+	genie_server:start_link(genie_server_SUITE, [], [{async, infinity}]),
+    ?line ok = genie_server:call(Pid1, started_p),
+    ?line ok = genie_server:call(Pid1, stop),
+    ?line receive
+	      {'EXIT', Pid1, stopped} ->
+		  ok
+	  after 5000 ->
+		  test_server:fail(not_stopped)
+	  end,
+
+    %% local register
+    ?line {ok, Pid2} =
+	genie_server:start({local, my_test_name},
+			 genie_server_SUITE, [], [{async, infinity}]),
+    ?line ok = genie_server:call(my_test_name, started_p),
+    ?line {error, {already_started, Pid2}} =
+	genie_server:start({local, my_test_name},
+			 genie_server_SUITE, [], [{async, infinity}]),
+    ?line ok = genie_server:call(my_test_name, stop),
+
+    ?line busy_wait_for_process(Pid2,600),
+
+    ?line {'EXIT', {noproc,_}} = (catch genie_server:call(Pid2, started_p, 10)),
+
+    %% local register linked
+    ?line {ok, Pid3} =
+	genie_server:start_link({local, my_test_name},
+			      genie_server_SUITE, [], [{async, infinity}]), 
+    ?line ok = genie_server:call(my_test_name, started_p),
+    ?line {error, {already_started, Pid3}} =
+	genie_server:start({local, my_test_name},
+			 genie_server_SUITE, [], [{async, infinity}]),
+    ?line ok = genie_server:call(my_test_name, stop),
+    ?line receive
+	      {'EXIT', Pid3, stopped} ->
+		  ok
+	  after 5000 ->
+		  test_server:fail(not_stopped)
+	  end,
+
+    %% global register
+    ?line {ok, Pid4} =
+	genie_server:start({global, my_test_name},
+			 genie_server_SUITE, [], [{async, infinity}]),
+    ?line ok = genie_server:call({global, my_test_name}, started_p),
+    ?line {error, {already_started, Pid4}} =
+	genie_server:start({global, my_test_name},
+			 genie_server_SUITE, [], [{async, infinity}]),
+    ?line ok = genie_server:call({global, my_test_name}, stop),
+    test_server:sleep(1),
+    ?line {'EXIT', {noproc,_}} = (catch genie_server:call(Pid4, started_p, 10)),
+
+    %% global register linked
+    ?line {ok, Pid5} =
+	genie_server:start_link({global, my_test_name},
+			      genie_server_SUITE, [], [{async, infinity}]), 
+    ?line ok = genie_server:call({global, my_test_name}, started_p),
+    ?line {error, {already_started, Pid5}} =
+	genie_server:start({global, my_test_name},
+			 genie_server_SUITE, [], [{async, infinity}]),
+    ?line ok = genie_server:call({global, my_test_name}, stop),
+    ?line receive
+	      {'EXIT', Pid5, stopped} ->
+		  ok
+	  after 5000 ->
+		  test_server:fail(not_stopped)
+	  end,
+
+    %% via register
+    ?line dummy_via:reset(),
+    ?line {ok, Pid6} =
+	genie_server:start({via, dummy_via, my_test_name},
+			 genie_server_SUITE, [], [{async, infinity}]),
+    ?line ok = genie_server:call({via, dummy_via, my_test_name}, started_p),
+    ?line {error, {already_started, Pid6}} =
+	genie_server:start({via, dummy_via, my_test_name},
+			 genie_server_SUITE, [], [{async, infinity}]),
+    ?line ok = genie_server:call({via, dummy_via, my_test_name}, stop),
+    test_server:sleep(1),
+    ?line {'EXIT', {noproc,_}} = (catch genie_server:call(Pid6, started_p, 10)),
+
+    %% via register linked
+    ?line dummy_via:reset(),
+    ?line {ok, Pid7} =
+	genie_server:start_link({via, dummy_via, my_test_name},
+			      genie_server_SUITE, [], [{async, infinity}]),
+    ?line ok = genie_server:call({via, dummy_via, my_test_name}, started_p),
+    ?line {error, {already_started, Pid7}} =
+	genie_server:start({via, dummy_via, my_test_name},
+			 genie_server_SUITE, [], [{async, infinity}]),
+    ?line ok = genie_server:call({via, dummy_via, my_test_name}, stop),
+    ?line receive
+	      {'EXIT', Pid7, stopped} ->
+		  ok
+	  after 5000 ->
+		  test_server:fail(not_stopped)
+	  end,
+    test_server:messages_get(),
+
+    process_flag(trap_exit, OldFl),
+    ok.
+
+async_stop(_) ->
+    OldFl = process_flag(trap_exit, true),
+
+    ?line error_logger_forwarder:register(),
+
+    ?line {ok, Pid1} =
+	genie_server:start_link(genie_server_SUITE, {stop, normal},
+				[{async, infinity}]),
+    ?line receive
+	{'EXIT', Pid1, normal} ->
+	    ok;
+	{'EXIT', Pid1, Reason} ->
+		  ct:print("~p",[Reason])
+    after 5000 ->
+	      test_server:fail(not_stopped)
+    end,
+     ?line {ok, Pid2} =
+	genie_server:start_link(genie_server_SUITE, {stop, shutdown},
+				[{async, infinity}]),
+    ?line receive
+	{'EXIT', Pid2, shutdown} ->
+	    ok
+    after 5000 ->
+	      test_server:fail(not_stopped)
+    end,
+    ?line {ok, Pid3} =
+	genie_server:start_link(genie_server_SUITE, {stop, {shutdown, stopped}},
+				[{async, infinity}]),
+    ?line receive
+	{'EXIT', Pid3, {shutdown, stopped}} ->
+	    ok
+    after 5000 ->
+	      test_server:fail(not_stopped)
+    end,
+    ?line {ok, Pid4} =
+	genie_server:start_link(genie_server_SUITE, stop, [{async, infinity}]),
+    ?line receive
+	{'EXIT', Pid4, stopped} ->
+	    ok
+    after 5000 ->
+	      test_server:fail(not_stopped)
+    end,
+    ?line receive
+	{error,_GroupLeader4,{Pid4,
+			      "** Generic server"++_,
+			      [Pid4,stop,stopped]}} ->
+	    ok;
+	Other4a ->
+ 	    ?line io:format("Unexpected: ~p", [Other4a]),
+ 	    ?line test_server:fail()
+    after 5000 ->
+	      test_server:fail(not_logged)
+    end,
+    process_flag(trap_exit, OldFl),
+    ok.
+
+async_exit(_) ->
+    OldFl = process_flag(trap_exit, true),
+
+    ?line error_logger_forwarder:register(),
+
+    ?line {ok, Pid1} =
+	genie_server:start_link(genie_server_SUITE, {exit, normal},
+				[{async, infinity}]),
+    ?line receive
+	{'EXIT', Pid1, normal} ->
+	    ok
+    after 5000 ->
+	      test_server:fail(not_stopped)
+    end,
+     ?line {ok, Pid2} =
+	genie_server:start_link(genie_server_SUITE, {exit, shutdown},
+				[{async, infinity}]),
+    ?line receive
+	{'EXIT', Pid2, shutdown} ->
+	    ok
+    after 5000 ->
+	      test_server:fail(not_stopped)
+    end,
+    ?line {ok, Pid3} =
+	genie_server:start_link(genie_server_SUITE, {exit, {shutdown, stopped}},
+				[{async, infinity}]),
+    ?line receive
+	{'EXIT', Pid3, {shutdown, stopped}} ->
+	    ok
+    after 5000 ->
+	      test_server:fail(not_stopped)
+    end,
+    ?line {ok, Pid4} =
+	genie_server:start_link(genie_server_SUITE, {exit, stopped},
+				[{async, infinity}]),
+    ?line receive
+	{'EXIT', Pid4, stopped} ->
+	    ok
+    after 5000 ->
+	      test_server:fail(not_stopped)
+    end,
+    ?line receive
+	{error,_GroupLeader4,{Pid4,
+			      "** Generic server"++_,
+			      [Pid4,{exit, stopped},stopped]}} ->
+	    ok;
+	Other4a ->
+	    ?line io:format("Unexpected: ~p", [Other4a]),
+	    ?line test_server:fail()
+    after 5000 ->
+	      test_server:fail(not_logged)
+    end,
+    process_flag(trap_exit, OldFl),
+    ok.
+
+async_timer_timeout(_) ->
+    OldFl = process_flag(trap_exit, true),
+
+    ?line error_logger_forwarder:register(),
+
+    ?line {ok, Pid} = genie_server:start_link(genie_server_SUITE, sleep,
+					      [{async, 100}]),
+    receive
+	{'EXIT', Pid, killed} ->
+	    ok
+    after
+	5000 ->
+	    test_server:fail(not_killed)
+    end,
+    receive
+	{error,_GroupLeader,{_Timer,
+			      "** Generic server"++_,
+			      [Pid,sleep,killed]}} ->
+	    ok;
+	Other ->
+	    ?line io:format("Unexpected: ~p", [Other]),
+	    ?line test_server:fail()
+    after 5000 ->
+	      test_server:fail(not_logged)
+    end,
+    process_flag(trap_exit, OldFl),
+    ok.
+
 %%--------------------------------------------------------------
 %% Help functions to spec_init_*
 start_link(Init, Options) ->
@@ -1217,6 +1507,10 @@ init(ignore) ->
     ignore;
 init(stop) ->
     {stop, stopped};
+init({stop, _Reason} = Result) ->
+    Result;
+init({exit, Reason}) ->
+    exit(Reason);
 init(hibernate) ->
     {ok,[],hibernate};
 init(sleep) ->

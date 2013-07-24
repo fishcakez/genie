@@ -101,7 +101,8 @@
 	 format_status/2]).
 
 %% Internal exports
--export([init_it/6]).
+-export([init_it/6,
+	 async_timeout_info/4]).
 
 -import(error_logger, [format/2]).
 
@@ -317,6 +318,9 @@ init_it(Starter, Parent, Name0, Mod, Args, Options) ->
 	    %% tried starting the process again.)
 	    unregister_name(Name0),
 	    genie:init_ack(Starter, {error, Reason}),
+	    %% Async init error reported after genie:init_ack/2 as process could
+	    %% be killed inside genie:init_ack/2.
+	    async_error_info(Reason, Starter, Name, Args, Debug),
 	    exit(Reason);
 	ignore ->
 	    unregister_name(Name0),
@@ -325,10 +329,12 @@ init_it(Starter, Parent, Name0, Mod, Args, Options) ->
 	{'EXIT', Reason} ->
 	    unregister_name(Name0),
 	    genie:init_ack(Starter, {error, Reason}),
+	    async_error_info(Reason, Starter, Name, Args, Debug),
 	    exit(Reason);
 	Else ->
 	    Error = {bad_return_value, Else},
 	    genie:init_ack(Starter, {error, Error}),
+	    async_error_info(Error, Starter, Name, Args, Debug),
 	    exit(Error)
     end.
 
@@ -751,23 +757,7 @@ error_info(_Reason, application_controller, _Msg, _State, _Debug) ->
     %% of it instead
     ok;
 error_info(Reason, Name, Msg, State, Debug) ->
-    Reason1 = 
-	case Reason of
-	    {undef,[{M,F,A,L}|MFAs]} ->
-		case code:is_loaded(M) of
-		    false ->
-			{'module could not be loaded',[{M,F,A,L}|MFAs]};
-		    _ ->
-			case erlang:function_exported(M, F, length(A)) of
-			    true ->
-				Reason;
-			    false ->
-				{'function not exported',[{M,F,A,L}|MFAs]}
-			end
-		end;
-	    _ ->
-		Reason
-	end,    
+    Reason1 = reason(Reason),
     format("** Generic server ~p terminating \n"
            "** Last message in was ~p~n"
            "** When Server state == ~p~n"
@@ -775,6 +765,49 @@ error_info(Reason, Name, Msg, State, Debug) ->
 	   [Name, Msg, State, Reason1]),
     sys:print_log(Debug),
     ok.
+
+async_error_info(Reason, Starter, Name, Args, Debug) ->
+    case genie:starter_mode(Starter) of
+	async when Reason =/= normal andalso
+		   Reason =/= shutdown andalso
+		   not (is_tuple(Reason) andalso
+			tuple_size(Reason) =:= 2 andalso
+			element(1, Reason) =:= shutdown) ->
+	    Reason1 = reason(Reason),
+	    format("** Generic server ~p terminating \n"
+		   "** When in asynchronous init ~n"
+		   "** When Server arguments == ~p~n"
+		   "** Reason for termination == ~n** ~p~n",
+		   [Name, Args, Reason1]),
+	    sys:print_log(Debug),
+	    ok;
+	_ ->
+	    ok
+    end.
+
+async_timeout_info(Name, _Mod, Args, Debug) ->
+    format("** Generic server ~p timed out \n"
+	   "** When in asynchronous init ~n"
+	   "** When Server arguments == ~p~n"
+	   "** Reason for termination == ~n** ~p~n",
+	   [Name, Args, killed]),
+    sys:print_log(Debug),
+    ok.
+
+reason({undef,[{M,F,A,L}|MFAs]} = Reason) ->
+    case code:is_loaded(M) of
+	false ->
+	    {'module could not be loaded',[{M,F,A,L}|MFAs]};
+	_ ->
+	    case erlang:function_exported(M, F, length(A)) of
+		true ->
+		    Reason;
+		false ->
+		    {'function not exported',[{M,F,A,L}|MFAs]}
+	    end
+    end;
+reason(Reason) ->
+    Reason.
 
 %%% ---------------------------------------------------
 %%% Misc. functions.

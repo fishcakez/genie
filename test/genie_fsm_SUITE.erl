@@ -37,6 +37,11 @@
 
 -export([enter_loop/1]).
 
+-export([async_start1/1, async_start2/1, async_start3/1, async_start4/1,
+	 async_start5/1, async_start6/1, async_start7/1, async_start8/1,
+	 async_start9/1, async_start10/1, async_start11/1, async_start12/1,
+	 async_exit/1, async_timer_timeout/1]).
+
 %% Exports for apply
 -export([do_msg/1, do_sync_msg/1]).
 -export([enter_loop/2]).
@@ -56,7 +61,7 @@
 
 all() ->
     [{group, start}, {group, abnormal}, shutdown,
-     {group, sys}, hibernate, enter_loop].
+     {group, sys}, hibernate, enter_loop, {group, async}].
 
 groups() ->
     [{start, [],
@@ -64,7 +69,11 @@ groups() ->
        start8, start9, start10, start11, start12]},
      {abnormal, [], [abnormal1, abnormal2]},
      {sys, [],
-      [sys1, call_format_status, error_format_status, get_state, replace_state]}].
+      [sys1, call_format_status, error_format_status, get_state, replace_state]},
+    {async, [],
+      [async_start1, async_start2, async_start3, async_start4, async_start5,
+       async_start6, async_start7, async_start8, async_start9, async_start10,
+       async_start11, async_start12, async_exit, async_timer_timeout]}].
 
 init_per_suite(Config) ->
     Config.
@@ -279,12 +288,13 @@ start12(Config) when is_list(Config) ->
 %% Check that time outs in calls work
 abnormal1(suite) -> [];
 abnormal1(Config) when is_list(Config) ->
-    {ok, _Pid} = genie_fsm:start({local, my_fsm}, genie_fsm_SUITE, [], []),
+    {ok, Pid} = genie_fsm:start({local, my_fsm}, genie_fsm_SUITE, [], []),
 
     %% timeout call.
     delayed = genie_fsm:sync_send_event(my_fsm, {delayed_answer,1}, 100),
     {'EXIT',{timeout,_}} =
     (catch genie_fsm:sync_send_event(my_fsm, {delayed_answer,10}, 1)),
+    ?line stop_it(Pid),
     test_server:messages_get(),
     ok.
 
@@ -725,6 +735,367 @@ enter_loop(Reg1, Reg2) ->
 	    genie_fsm:enter_loop(?MODULE, [], state0, [])
     end.
 
+%% async tests
+
+%% anonymous
+async_start1(Config) when is_list(Config) ->
+    %%OldFl = process_flag(trap_exit, true),
+
+    ?line {ok, Pid0} = genie_fsm:start_link(genie_fsm_SUITE, [],
+					    [{async, infinity}]),
+    ?line ok = do_func_test(Pid0),
+    ?line ok = do_sync_func_test(Pid0),
+    stop_it(Pid0),
+%%    ?line stopped = genie_fsm:sync_send_all_state_event(Pid0, stop),
+%%    ?line {'EXIT', {timeout,_}} = 
+%%	(catch genie_fsm:sync_send_event(Pid0, hej)),
+
+    ?line test_server:messages_get(),
+    %%process_flag(trap_exit, OldFl),
+   ok.
+
+%% anonymous w. shutdown
+async_start2(Config) when is_list(Config) ->
+    %% Dont link when shutdown
+    ?line {ok, Pid0} = genie_fsm:start(genie_fsm_SUITE, [],
+				       [{async, infinity}]),
+    ?line ok = do_func_test(Pid0),
+    ?line ok = do_sync_func_test(Pid0),
+    ?line shutdown_stopped = 
+	genie_fsm:sync_send_all_state_event(Pid0, stop_shutdown),
+    ?line {'EXIT', {noproc,_}} = 
+	(catch genie_fsm:sync_send_event(Pid0, hej)),
+
+    ?line test_server:messages_get(),
+    ok.
+
+%% anonymous with timeout
+async_start3(Config) when is_list(Config) ->
+    %%OldFl = process_flag(trap_exit, true),
+
+    ?line {ok, Pid0} = genie_fsm:start(genie_fsm_SUITE, [], [{async, infinity},
+							     {timeout, 5}]),
+    ?line ok = do_func_test(Pid0),
+    ?line ok = do_sync_func_test(Pid0),
+    ?line stop_it(Pid0),
+    
+    ?line {ok, Pid1} = genie_fsm:start(genie_fsm_SUITE, sleep,
+					   [{async, infinity}, {timeout,5}]),
+    ?line stop_it(Pid1),
+
+    test_server:messages_get(),
+    %%process_flag(trap_exit, OldFl),
+    ok.
+
+%% anonymous with ignore
+async_start4(suite) -> [];
+async_start4(Config) when is_list(Config) ->
+    OldFl = process_flag(trap_exit, true),
+
+    ?line {ok, Pid} = genie_fsm:start_link(genie_fsm_SUITE, ignore,
+					   [{async, infinity}]),
+    receive
+	{'EXIT', Pid, normal} ->
+	    ok
+    after 5000 ->
+	      test_server:fail(not_stopped)
+    end,
+
+    test_server:messages_get(),
+    process_flag(trap_exit, OldFl),
+    ok.
+
+%% anonymous with stop
+async_start5(suite) -> [];
+async_start5(Config) when is_list(Config) ->
+    OldFl = process_flag(trap_exit, true),
+
+    ?line error_logger_forwarder:register(),
+
+    ?line {ok, Pid1} =
+    genie_fsm:start_link(genie_fsm_SUITE, {stop, normal},
+			    [{async, infinity}]),
+    ?line receive
+	      {'EXIT', Pid1, normal} ->
+		  ok;
+	      {'EXIT', Pid1, Reason} ->
+		  ct:print("~p",[Reason])
+	  after 5000 ->
+		    test_server:fail(not_stopped)
+	  end,
+    ?line {ok, Pid2} =
+    genie_fsm:start_link(genie_fsm_SUITE, {stop, shutdown},
+			    [{async, infinity}]),
+    ?line receive
+	      {'EXIT', Pid2, shutdown} ->
+		  ok
+	  after 5000 ->
+		    test_server:fail(not_stopped)
+	  end,
+    ?line {ok, Pid3} =
+    genie_fsm:start_link(genie_fsm_SUITE, {stop, {shutdown, stopped}},
+			    [{async, infinity}]),
+    ?line receive
+	      {'EXIT', Pid3, {shutdown, stopped}} ->
+		  ok
+	  after 5000 ->
+		    test_server:fail(not_stopped)
+	  end,
+    ?line {ok, Pid4} =
+    genie_fsm:start_link(genie_fsm_SUITE, stop, [{async, infinity}]),
+    ?line receive
+	      {'EXIT', Pid4, stopped} ->
+		  ok
+	  after 5000 ->
+		    test_server:fail(not_stopped)
+	  end,
+    ?line receive
+	      {error,_GroupLeader4,{Pid4,
+				    "** State machine"++_,
+				    [Pid4,stop,stopped]}} ->
+		  ok;
+	      Other4a ->
+		  ?line io:format("Unexpected: ~p", [Other4a]),
+		  ?line test_server:fail()
+	  after 5000 ->
+		    test_server:fail(not_logged)
+	  end,
+    process_flag(trap_exit, OldFl),
+    ok.
+
+%% anonymous linked
+async_start6(Config) when is_list(Config) ->
+    ?line {ok, Pid} = genie_fsm:start_link(genie_fsm_SUITE, [],
+					   [{async, infinity}]),
+    ?line ok = do_func_test(Pid),
+    ?line ok = do_sync_func_test(Pid),
+    ?line stop_it(Pid),
+
+    test_server:messages_get(),
+
+    ok.
+
+%% global register linked
+async_start7(Config) when is_list(Config) ->
+    ?line {ok, Pid} = 
+	genie_fsm:start_link({global, my_fsm}, genie_fsm_SUITE, [],
+			     [{async, infinity}]),
+    ?line {error, {already_started, Pid}} =
+	genie_fsm:start_link({global, my_fsm}, genie_fsm_SUITE, [],
+			     [{async, infinity}]),
+    ?line {error, {already_started, Pid}} =
+	genie_fsm:start({global, my_fsm}, genie_fsm_SUITE, [],
+			[{async, infinity}]),
+    
+    ?line ok = do_func_test(Pid),
+    ?line ok = do_sync_func_test(Pid),
+    ?line ok = do_func_test({global, my_fsm}),
+    ?line ok = do_sync_func_test({global, my_fsm}),
+    ?line stop_it({global, my_fsm}),
+    
+    test_server:messages_get(),
+    ok.
+
+
+%% local register
+async_start8(Config) when is_list(Config) ->
+    %%OldFl = process_flag(trap_exit, true),
+
+    ?line {ok, Pid} = 
+	genie_fsm:start({local, my_fsm}, genie_fsm_SUITE, [],
+			[{async, infinity}]),
+    ?line {error, {already_started, Pid}} =
+	genie_fsm:start({local, my_fsm}, genie_fsm_SUITE, [],
+			[{async, infinity}]),
+
+    ?line ok = do_func_test(Pid),
+    ?line ok = do_sync_func_test(Pid),
+    ?line ok = do_func_test(my_fsm),
+    ?line ok = do_sync_func_test(my_fsm),
+    ?line stop_it(Pid),
+    
+    test_server:messages_get(),
+    %%process_flag(trap_exit, OldFl),
+    ok.
+
+%% local register linked
+async_start9(Config) when is_list(Config) ->
+    %%OldFl = process_flag(trap_exit, true),
+
+    ?line {ok, Pid} = 
+	genie_fsm:start_link({local, my_fsm}, genie_fsm_SUITE, [],
+			     [{async, infinity}]),
+    ?line {error, {already_started, Pid}} =
+	genie_fsm:start({local, my_fsm}, genie_fsm_SUITE, [],
+			[{async, infinity}]),
+
+    ?line ok = do_func_test(Pid),
+    ?line ok = do_sync_func_test(Pid),
+    ?line ok = do_func_test(my_fsm),
+    ?line ok = do_sync_func_test(my_fsm),
+    ?line stop_it(Pid),
+    
+    test_server:messages_get(),
+    %%process_flag(trap_exit, OldFl),
+    ok.
+
+%% global register
+async_start10(Config) when is_list(Config) ->
+    ?line {ok, Pid} = 
+	genie_fsm:start({global, my_fsm}, genie_fsm_SUITE, [],
+			[{async, infinity}]),
+    ?line {error, {already_started, Pid}} =
+	genie_fsm:start({global, my_fsm}, genie_fsm_SUITE, [],
+			[{async, infinity}]),
+    ?line {error, {already_started, Pid}} =
+	genie_fsm:start_link({global, my_fsm}, genie_fsm_SUITE, [],
+			     [{async, infinity}]),
+    
+    ?line ok = do_func_test(Pid),
+    ?line ok = do_sync_func_test(Pid),
+    ?line ok = do_func_test({global, my_fsm}),
+    ?line ok = do_sync_func_test({global, my_fsm}),
+    ?line stop_it({global, my_fsm}),
+    
+    test_server:messages_get(),
+    ok.
+
+
+%% Stop registered processes
+async_start11(Config) when is_list(Config) ->
+    ?line {ok, Pid} = 
+	genie_fsm:start_link({local, my_fsm}, genie_fsm_SUITE, [],
+			     [{async, infinity}]),
+    ?line stop_it(Pid),
+
+    ?line {ok, _Pid1} = 
+	genie_fsm:start_link({local, my_fsm}, genie_fsm_SUITE, [],
+			     [{async, infinity}]),
+    ?line stop_it(my_fsm),
+    
+    ?line {ok, Pid2} = 
+	genie_fsm:start({global, my_fsm}, genie_fsm_SUITE, [],
+			[{async, infinity}]),
+    ?line stop_it(Pid2),
+    receive after 1 -> true end,
+    ?line Result = 
+	genie_fsm:start({global, my_fsm}, genie_fsm_SUITE, [],
+			[{async, infinity}]),
+    io:format("Result = ~p~n",[Result]),
+    ?line {ok, _Pid3} = Result, 
+    ?line stop_it({global, my_fsm}),
+
+    test_server:messages_get(),
+    ok.
+
+%% Via register linked
+async_start12(Config) when is_list(Config) ->
+    ?line dummy_via:reset(),
+    ?line {ok, Pid} =
+	genie_fsm:start_link({via, dummy_via, my_fsm}, genie_fsm_SUITE, [],
+			     [{async, infinity}]),
+    ?line {error, {already_started, Pid}} =
+	genie_fsm:start_link({via, dummy_via, my_fsm}, genie_fsm_SUITE, [],
+			     [{async, infinity}]),
+    ?line {error, {already_started, Pid}} =
+	genie_fsm:start({via, dummy_via, my_fsm}, genie_fsm_SUITE, [],
+			[{async, infinity}]),
+
+    ?line ok = do_func_test(Pid),
+    ?line ok = do_sync_func_test(Pid),
+    ?line ok = do_func_test({via, dummy_via, my_fsm}),
+    ?line ok = do_sync_func_test({via, dummy_via, my_fsm}),
+    ?line stop_it({via, dummy_via, my_fsm}),
+
+    test_server:messages_get(),
+    ok.
+
+async_exit(_) ->
+    OldFl = process_flag(trap_exit, true),
+
+    ?line error_logger_forwarder:register(),
+
+    ?line {ok, Pid1} =
+	genie_fsm:start_link(genie_fsm_SUITE, {exit, normal},
+				[{async, infinity}]),
+    ?line receive
+	{'EXIT', Pid1, normal} ->
+	    ok
+    after 5000 ->
+	      test_server:fail(not_stopped)
+    end,
+     ?line {ok, Pid2} =
+	genie_fsm:start_link(genie_fsm_SUITE, {exit, shutdown},
+				[{async, infinity}]),
+    ?line receive
+	{'EXIT', Pid2, shutdown} ->
+	    ok
+    after 5000 ->
+	      test_server:fail(not_stopped)
+    end,
+    ?line {ok, Pid3} =
+	genie_fsm:start_link(genie_fsm_SUITE, {exit, {shutdown, stopped}},
+				[{async, infinity}]),
+    ?line receive
+	{'EXIT', Pid3, {shutdown, stopped}} ->
+	    ok
+    after 5000 ->
+	      test_server:fail(not_stopped)
+    end,
+    ?line {ok, Pid4} =
+	genie_fsm:start_link(genie_fsm_SUITE, {exit, stopped},
+				[{async, infinity}]),
+    ?line receive
+	{'EXIT', Pid4, stopped} ->
+	    ok
+    after 5000 ->
+	      test_server:fail(not_stopped)
+    end,
+    ?line receive
+	{error,_GroupLeader4,{Pid4,
+			      "** State machine"++_,
+			      [Pid4,{exit, stopped},stopped]}} ->
+	    ok;
+	Other4a ->
+	    ?line io:format("Unexpected: ~p", [Other4a]),
+	    ?line test_server:fail()
+    after 5000 ->
+	      test_server:fail(not_logged)
+    end,
+    process_flag(trap_exit, OldFl),
+    ok.
+
+async_timer_timeout(_) ->
+    OldFl = process_flag(trap_exit, true),
+
+    ?line error_logger_forwarder:register(),
+
+    ?line {ok, Pid} = genie_fsm:start_link(genie_fsm_SUITE, sleep,
+					      [{async, 100}]),
+    receive
+	{'EXIT', Pid, killed} ->
+	    ok
+    after
+	5000 ->
+	    test_server:fail(not_killed)
+    end,
+    receive
+	{error,_GroupLeader,{_Timer,
+			      "** State machine"++_,
+			      [Pid,sleep,killed]}} ->
+	    ok;
+	Other ->
+	    ?line io:format("Unexpected: ~p", [Other]),
+	    ?line test_server:fail()
+    after 5000 ->
+	      test_server:fail(not_logged)
+    end,
+    process_flag(trap_exit, OldFl),
+    ok.
+
+
+
+
 %%
 %% Functionality check
 %%
@@ -833,6 +1204,10 @@ init(stop) ->
     {stop, stopped};
 init(stop_shutdown) ->
     {stop, shutdown};
+init({stop, _Reason} = Result) ->
+    Result;
+init({exit, Reason}) ->
+    exit(Reason);
 init(sleep) ->
     test_server:sleep(1000),
     {ok, idle, data};

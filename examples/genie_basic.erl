@@ -12,6 +12,7 @@
 %% genie callbacks
 
 -export([init_it/6]).
+-export([async_timeout_info/4]).
 
 %% sys callbacks
 
@@ -106,7 +107,7 @@ call(Process, Request, Timeout) ->
 %% Called by the process spawned by `genie:start/5,6' once registration has
 %% taken place.
 %%
-%% `Starter' is the process that called `genie:start/5,6'.
+%% `Starter' is an opaque term contains the pid that called `genie:start/5,6'.
 %%
 %% `Parent' is the process that called `genie:start/5,6' or the atom `self' if
 %% there is no link.
@@ -179,6 +180,24 @@ init_it(Starter, Parent, Name, Mod, Args, Options) ->
 	    genie:init_ack(Starter, {error, Reason}),
 	    exit(Reason)
     end.
+
+%% @private
+%% This function is used by `genie' to log an error when an asynchronous
+%% initialisation times out.
+%%
+%% `Name' is the process' register name or if not registered the pid of the
+%% process.
+%%
+%% `Mod' and `Args' are the callback module and argument used to initialise the
+%% process.
+%%
+%% `Debug' is result of `genie:debug_options(Name, Options)', where `Options'
+%% is final argument to `genie:start/5,6'.
+%%
+%% In this case no logging is done but check `genie_server' or `genie_fsm' for
+%% an example.
+async_timeout_info(_Name, _Mod, _Args, _Debug) ->
+    ok.
 
 %% sys callbacks
 
