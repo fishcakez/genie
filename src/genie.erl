@@ -96,7 +96,10 @@
 
 -opaque starter()   :: pid() | {async, pid(), undefined | pid()}.
 
--type start_ret()   :: {'ok', pid()} | 'ignore' | {'error', term()}.
+-type start_ret()   :: {'ok', pid()}
+		     | {ok, pid(), term()}
+		     | 'ignore'
+		     | {'error', term()}.
 
 -type system_event() :: {'in', Msg :: term()}
 		      | {'in', Msg :: term(), From :: term()}
@@ -203,11 +206,12 @@ start(GenMod, LinkP, Name, Mod, Args, Options) ->
 %%
 %% `Starter' is the first argument passed to `GenMod:init_it/6'.
 %%
-%% A success will have `Return' as `{ok, self()}'. In the case of failure
-%% `Return' is of the form `{error, Reason}' where `Reason' can be any term, the
-%% process then exits with the same reason by calling `exit(Reason)'. If no
-%% error occured but the process is going to exit immediately (with reason
-%% `normal'), `Return' is the atom `ignore'.
+%% A success will have `Return' as `{ok, self()}' or `{ok, self(), Info}, where
+%% `Info' can be any term. In the case of failure `Return' is of the form
+%% `{error, Reason}' where `Reason' can be any term, the process then exits with
+%% the same reason by calling `exit(Reason)'. If no error occured but the
+%% process is going to exit immediately (with reason `normal'), `Return' is the
+%% atom `ignore'.
 %%
 %% Note that the caller of `start/5,6' blocks until it receives the
 %% acknowledgment sent by `init_ack/2'.

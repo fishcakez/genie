@@ -129,6 +129,12 @@ start(Config) when is_list(Config) ->
     %% anonymous with ignore
     ?line ignore = genie_server:start(genie_server_SUITE, ignore, []),
 
+    %% anonymous with info
+    ?line {ok, Pid01, extra} = genie_server:start(genie_server_SUITE, extra,
+						  []),
+    ?line ok = genie_server:call(Pid01, started_p),
+    ?line ok = genie_server:call(Pid01, stop),
+
     %% anonymous with stop
     ?line {error, stopped} = genie_server:start(genie_server_SUITE, stop, []),
 
@@ -1177,6 +1183,12 @@ async_start(_) ->
     ?line ok = genie_server:call(Pid04, started_p),
     ?line ok = genie_server:call(Pid04, stop),
 
+    %% anonymous with info
+    ?line {ok, Pid05} = genie_server:start(genie_server_SUITE, extra,
+					  [{async, infinity}]),
+    ?line ok = genie_server:call(Pid05, started_p),
+    ?line ok = genie_server:call(Pid05, stop),
+
     %% anonymous linked
     ?line {ok, Pid1} =
 	genie_server:start_link(genie_server_SUITE, [], [{async, infinity}]),
@@ -1511,6 +1523,8 @@ init({stop, _Reason} = Result) ->
     Result;
 init({exit, Reason}) ->
     exit(Reason);
+init(extra) ->
+    {info,[],extra};
 init(hibernate) ->
     {ok,[],hibernate};
 init(sleep) ->

@@ -25,7 +25,8 @@
 	 init_per_group/2,end_per_group/2]).
 
 -export([start1/1, start2/1, start3/1, start4/1, start5/1, start6/1,
-	 start7/1, start8/1, start9/1, start10/1, start11/1, start12/1]).
+	 start7/1, start8/1, start9/1, start10/1, start11/1, start12/1,
+	 start13/1]).
 
 -export([ abnormal1/1, abnormal2/1]).
 
@@ -40,7 +41,7 @@
 -export([async_start1/1, async_start2/1, async_start3/1, async_start4/1,
 	 async_start5/1, async_start6/1, async_start7/1, async_start8/1,
 	 async_start9/1, async_start10/1, async_start11/1, async_start12/1,
-	 async_exit/1, async_timer_timeout/1]).
+	 async_start13/1, async_exit/1, async_timer_timeout/1]).
 
 %% Exports for apply
 -export([do_msg/1, do_sync_msg/1]).
@@ -66,14 +67,15 @@ all() ->
 groups() ->
     [{start, [],
       [start1, start2, start3, start4, start5, start6, start7,
-       start8, start9, start10, start11, start12]},
+       start8, start9, start10, start11, start12, start13]},
      {abnormal, [], [abnormal1, abnormal2]},
      {sys, [],
       [sys1, call_format_status, error_format_status, get_state, replace_state]},
     {async, [],
       [async_start1, async_start2, async_start3, async_start4, async_start5,
        async_start6, async_start7, async_start8, async_start9, async_start10,
-       async_start11, async_start12, async_exit, async_timer_timeout]}].
+       async_start11, async_start12, async_start13, async_exit,
+       async_timer_timeout]}].
 
 init_per_suite(Config) ->
     Config.
@@ -284,6 +286,17 @@ start12(Config) when is_list(Config) ->
     test_server:messages_get(),
     ok.
 
+%% anonymous with ignore
+start13(suite) -> [];
+start13(Config) when is_list(Config) ->
+    OldFl = process_flag(trap_exit, true),
+
+    ?line {ok, Pid, extra} = genie_fsm:start_link(genie_fsm_SUITE, extra, []),
+    ?line stop_it(Pid),
+
+    test_server:messages_get(),
+    process_flag(trap_exit, OldFl),
+    ok.
 
 %% Check that time outs in calls work
 abnormal1(suite) -> [];
@@ -1010,6 +1023,18 @@ async_start12(Config) when is_list(Config) ->
     test_server:messages_get(),
     ok.
 
+%% anonymous with ignore
+async_start13(suite) -> [];
+async_start13(Config) when is_list(Config) ->
+    OldFl = process_flag(trap_exit, true),
+
+    ?line {ok, Pid} = genie_fsm:start_link(genie_fsm_SUITE, extra,
+					   [{async, infinity}]),
+    ?line stop_it(Pid),
+    test_server:messages_get(),
+    process_flag(trap_exit, OldFl),
+    ok.
+
 async_exit(_) ->
     OldFl = process_flag(trap_exit, true),
 
@@ -1212,6 +1237,10 @@ init(sleep) ->
     test_server:sleep(1000),
     {ok, idle, data};
 init({timeout, T}) ->
+    {ok, idle, state, T};
+init(extra) ->
+    {info, idle, state, extra};
+init({extra, T}) ->
     {ok, idle, state, T};
 init(hiber) ->
     {ok, hiber_idle, []};

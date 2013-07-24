@@ -366,6 +366,12 @@ init_it(Starter, Parent, Name0, Mod, Args, Options) ->
 	{ok, StateName, StateData, Timeout} ->
 	    genie:init_ack(Starter, {ok, self()}), 	    
 	    loop(Parent, Name, StateName, StateData, Mod, Timeout, Debug);
+	{info, StateName, StateData, Info} ->
+	    genie:init_ack(Starter, {ok, self(), Info}), 	    
+	    loop(Parent, Name, StateName, StateData, Mod, infinity, Debug);
+	{info, StateName, StateData, Info, Timeout} ->
+	    genie:init_ack(Starter, {ok, self(), Info}), 	    
+	    loop(Parent, Name, StateName, StateData, Mod, Timeout, Debug);
 	{stop, Reason} ->
 	    unregister_name(Name0),
 	    genie:init_ack(Starter, {error, Reason}),

@@ -309,6 +309,12 @@ init_it(Starter, Parent, Name0, Mod, Args, Options) ->
 	{ok, State, Timeout} ->
 	    genie:init_ack(Starter, {ok, self()}), 	    
 	    loop(Parent, Name, State, Mod, Timeout, Debug);
+	{info, State, Info} ->
+	    genie:init_ack(Starter, {ok, self(), Info}), 	    
+	    loop(Parent, Name, State, Mod, infinity, Debug);
+	{info, State, Info, Timeout} ->
+	    genie:init_ack(Starter, {ok, self(), Info}), 	    
+	    loop(Parent, Name, State, Mod, Timeout, Debug);
 	{stop, Reason} ->
 	    %% For consistency, we must make sure that the
 	    %% registered name (if any) is unregistered before

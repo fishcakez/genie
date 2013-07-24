@@ -149,6 +149,15 @@ init_it(Starter, Parent, Name, Mod, Args, Options) ->
 	    %% this case `{ok, self()}'.
 	    genie:init_ack(Starter, {ok, self()}),
 	    loop(Parent, Name, Mod, State, Debug);
+	%% A user defined behaviour or callback module may wish to provide
+	%% additional information, `Info', to its starter. This can be done by
+	%% calling `genie:init_ack(Starter, {ok, self(), Info})'. `Info' can be
+	%% any term. `supervisor:start_child/2' and `supervisor:restart_child/2'
+	%% will pass on this information to the caller. `Info' is "lost" if
+	%% the process is started using the `supervisor' callback `init/1'.
+	{ok, State, Info} ->
+	    genie:init_ack(Starter, {ok, self(), Info}),
+	    loop(Parent, Name, Mod, State, Debug);
 	%% The standard return value when an expected error has occured. Note
 	%% that there is no need for the callbacks to employ defensive
 	%% programming as errors will be caught and dealt with by the generic
