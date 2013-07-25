@@ -79,7 +79,8 @@
 	 debug_options/1, debug_options/2,
 	 format_status_header/2,
 	 register_name/2, unregister_name/1,
-	 whereis_name/1]).
+	 whereis_name/1,
+	 proc_name/1, proc_name/2]).
 
 %% Internal exports
 -export([init_it/7, init_it/8]).
@@ -542,6 +543,63 @@ whereis_name({via, Module, ViaName}) ->
 whereis_name(Pid) when is_pid(Pid) ->
     Pid.
 
+%% @doc Returns a version of the process' name suitable for formatting.
+%%
+%% @equiv proc_name(`Name', [])
+-spec proc_name({local, LocalName}) ->
+    LocalName when
+      LocalName :: local_name();
+      ({global, GlobalName}) ->
+    GlobalName when
+      GlobalName :: global_name();
+      ({via, Module, ViaName}) ->
+    ViaName when
+      Module :: module(),
+      ViaName :: via_name();
+      (Pid) ->
+    Pid when
+      Pid :: pid().
+proc_name({local, LocalName}) ->
+    LocalName;
+proc_name({global, GlobalName}) ->
+    GlobalName;
+proc_name({via, _Module, ViaName}) ->
+    ViaName;
+proc_name(Pid) when is_pid(Pid) ->
+    Pid.
+
+%% @doc Returns a version of the process' name suitable for formatting.
+%%
+%% `Name' is the `Name' argument passed in `GenMod:init_it/6'. It can
+%% `{local, LocalName}', `{global, GlobalName}', `{via, Module, ViaName}' or a
+%% pid.
+%%
+%% `Opts' is a list of options. The only option is `verify', if it is present in
+%% the list then the calling process must also be registered as `Name' otherwise
+%% the function will exit with a suitable reason. The verification passes if a
+%% call to `whereis_name(Name)' returns the calling process. This means that if
+%% `Name' is a pid, then that must be the pid of the calling process.
+-spec proc_name({local, LocalName}, [verify]) ->
+    LocalName when
+      LocalName :: local_name();
+      ({global, GlobalName}, [verify]) ->
+    GlobalName when
+      GlobalName :: global_name();
+      ({via, Module, ViaName}, [verify]) ->
+    ViaName when
+      Module :: module(),
+      ViaName :: via_name();
+      (Pid, [verify]) ->
+    Pid when
+      Pid :: pid().
+proc_name(Name, Opts) ->
+    case lists:member(verify, Opts) of
+	true ->
+	    get_proc_name(Name);
+	false ->
+	    proc_name(Name)
+    end.
+
 %%%========================================================================
 %%% Proc lib-callback functions
 %%%========================================================================
@@ -808,3 +866,35 @@ async_debug(Name, Options) ->
 async_timeout_info(GenMod, Name, Mod, Args, Debug) ->
     _ = (catch GenMod:async_timeout_info(Name, Mod, Args, Debug)),
     ok.
+
+get_proc_name({local, LocalName}) ->
+    case process_info(self(), registered_name) of
+	{registered_name, LocalName} ->
+	    LocalName;
+	{registered_name, _LocalName} ->
+	    exit(process_not_registered);
+	[] ->
+	    exit(process_not_registered)
+    end;    
+get_proc_name({global, GlobalName}) ->
+    case global:whereis_name(GlobalName) of
+	undefined ->
+	    exit(process_not_registered_globally);
+	Pid when Pid =:= self() ->
+	    GlobalName;
+	_Pid ->
+	    exit(process_not_registered_globally)
+    end;
+get_proc_name({via, Module, ViaName}) ->
+    case Module:whereis_name(ViaName) of
+	undefined ->
+	    exit({process_not_registered_via, Module});
+	Pid when Pid =:= self() ->
+	    ViaName;
+	_Pid ->
+	    exit({process_not_registered_via, Module})
+    end;
+get_proc_name(Pid) when Pid =:= self() ->
+    Pid;
+get_proc_name(Pid) when is_pid(Pid) ->
+    exit({process_not, Pid}).

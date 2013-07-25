@@ -123,6 +123,12 @@ call(Process, Request, Timeout) ->
 init_it(Starter, self, Name, Mod, Args, Options) ->
     init_it(Starter, self(), Name, Mod, Args, Options);
 init_it(Starter, Parent, Name, Mod, Args, Options) ->
+    %% Get a format friendly version of `Name'. `Name2' will be an atom, term or
+    %% pid. For example if `Name' is `{local, LocalName}', `Name2' will be
+    %% `LocalName'. The name should be formatted using `~p':
+    %% `io:format("~p", [Name2])'. This is useful when formatting information
+    %% about a process for logging.
+    Name2 = genie:proc_name(Name),
     %% Get the sys debug structure to use `sys:handle_debug/4'. Note that genie
     %% debug options have an extra flag that `sys:debug_options/1' does not
     %% have, so `genie:debug_options/1,2' should always be used.
@@ -148,7 +154,7 @@ init_it(Starter, Parent, Name, Mod, Args, Options) ->
 	    %% acknowledgement. `start_link/3,4' returns the second argument, in
 	    %% this case `{ok, self()}'.
 	    genie:init_ack(Starter, {ok, self()}),
-	    loop(Parent, Name, Mod, State, Debug);
+	    loop(Parent, Name2, Mod, State, Debug);
 	%% A user defined behaviour or callback module may wish to provide
 	%% additional information, `Info', to its starter. This can be done by
 	%% calling `genie:init_ack(Starter, {ok, self(), Info})'. `Info' can be
@@ -157,7 +163,7 @@ init_it(Starter, Parent, Name, Mod, Args, Options) ->
 	%% the process is started using the `supervisor' callback `init/1'.
 	{ok, State, Info} ->
 	    genie:init_ack(Starter, {ok, self(), Info}),
-	    loop(Parent, Name, Mod, State, Debug);
+	    loop(Parent, Name2, Mod, State, Debug);
 	%% The standard return value when an expected error has occured. Note
 	%% that there is no need for the callbacks to employ defensive
 	%% programming as errors will be caught and dealt with by the generic

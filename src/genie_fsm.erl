@@ -289,40 +289,10 @@ enter_loop(Mod, Options, StateName, StateData, Timeout) ->
     enter_loop(Mod, Options, StateName, StateData, self(), Timeout).
 
 enter_loop(Mod, Options, StateName, StateData, ServerName, Timeout) ->
-    Name = get_proc_name(ServerName),
+    Name = genie:proc_name(ServerName, [verify]),
     Parent = get_parent(),
     Debug = genie:debug_options(Name, Options),
     loop(Parent, Name, StateName, StateData, Mod, Timeout, Debug).
-
-get_proc_name(Pid) when is_pid(Pid) ->
-    Pid;
-get_proc_name({local, Name}) ->
-    case process_info(self(), registered_name) of
-	{registered_name, Name} ->
-	    Name;
-	{registered_name, _Name} ->
-	    exit(process_not_registered);
-	[] ->
-	    exit(process_not_registered)
-    end;
-get_proc_name({global, Name}) ->
-    case global:whereis_name(Name) of
-	undefined ->
-	    exit(process_not_registered_globally);
-	Pid when Pid =:= self() ->
-	    Name;
-	_Pid ->
-	    exit(process_not_registered_globally)
-    end;
-get_proc_name({via, Mod, Name}) ->
-    case Mod:whereis_name(Name) of
-	undefined ->
-	    exit({process_not_registered_via, Mod});
-	Pid when Pid =:= self() ->
-	    Name;
-	_Pid ->
-	    exit({process_not_registered_via, Mod})
-    end.
 
 get_parent() ->
     case get('$ancestors') of
@@ -357,7 +327,7 @@ name_to_pid(Name) ->
 init_it(Starter, self, Name, Mod, Args, Options) ->
     init_it(Starter, self(), Name, Mod, Args, Options);
 init_it(Starter, Parent, Name0, Mod, Args, Options) ->
-    Name = name(Name0),
+    Name = genie:proc_name(Name0),
     Debug = genie:debug_options(Name, Options),
     case catch Mod:init(Args) of
 	{ok, StateName, StateData} ->
@@ -395,10 +365,6 @@ init_it(Starter, Parent, Name0, Mod, Args, Options) ->
 	    exit(Error)
     end.
 
-name({local,Name}) -> Name;
-name({global,Name}) -> Name;
-name({via,_, Name}) -> Name;
-name(Pid) when is_pid(Pid) -> Pid.
 %%-----------------------------------------------------------------
 %% The MAIN loop
 %%-----------------------------------------------------------------
