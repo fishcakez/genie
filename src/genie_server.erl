@@ -322,18 +322,18 @@ init_it(Starter, Parent, Name0, Mod, Args, Options) ->
 	    %% (Otherwise, the parent process could get
 	    %% an 'already_started' error if it immediately
 	    %% tried starting the process again.)
-	    unregister_name(Name0),
+	    genie:unregister_name(Name0),
 	    genie:init_ack(Starter, {error, Reason}),
 	    %% Async init error reported after genie:init_ack/2 as process could
 	    %% be killed inside genie:init_ack/2.
 	    async_error_info(Reason, Starter, Name, Args, Debug),
 	    exit(Reason);
 	ignore ->
-	    unregister_name(Name0),
+	    genie:unregister_name(Name0),
 	    genie:init_ack(Starter, ignore),
 	    exit(normal);
 	{'EXIT', Reason} ->
-	    unregister_name(Name0),
+	    genie:unregister_name(Name0),
 	    genie:init_ack(Starter, {error, Reason}),
 	    async_error_info(Reason, Starter, Name, Args, Debug),
 	    exit(Reason);
@@ -349,15 +349,6 @@ name({global,Name}) -> Name;
 name({via,_, Name}) -> Name;
 name(Pid) when is_pid(Pid) -> Pid.
 
-unregister_name({local,Name}) ->
-    _ = (catch unregister(Name));
-unregister_name({global,Name}) ->
-    _ = global:unregister_name(Name);
-unregister_name({via, Mod, Name}) ->
-    _ = Mod:unregister_name(Name);
-unregister_name(Pid) when is_pid(Pid) ->
-    Pid.
-    
 %%%========================================================================
 %%% Internal functions
 %%%========================================================================

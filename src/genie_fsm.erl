@@ -373,18 +373,18 @@ init_it(Starter, Parent, Name0, Mod, Args, Options) ->
 	    genie:init_ack(Starter, {ok, self(), Info}), 	    
 	    loop(Parent, Name, StateName, StateData, Mod, Timeout, Debug);
 	{stop, Reason} ->
-	    unregister_name(Name0),
+	    genie:unregister_name(Name0),
 	    genie:init_ack(Starter, {error, Reason}),
 	    %% Async init error reported after genie:init_ack/2 as process could
 	    %% be killed inside genie:init_ack/2.
 	    async_error_info(Reason, Starter, Name, Args, Debug),
 	    exit(Reason);
 	ignore ->
-	    unregister_name(Name0),
+	    genie:unregister_name(Name0),
 	    genie:init_ack(Starter, ignore),
 	    exit(normal);
 	{'EXIT', Reason} ->
-	    unregister_name(Name0),
+	    genie:unregister_name(Name0),
 	    genie:init_ack(Starter, {error, Reason}),
 	    async_error_info(Reason, Starter, Name, Args, Debug),
 	    exit(Reason);
@@ -399,16 +399,6 @@ name({local,Name}) -> Name;
 name({global,Name}) -> Name;
 name({via,_, Name}) -> Name;
 name(Pid) when is_pid(Pid) -> Pid.
-
-unregister_name({local,Name}) ->
-    _ = (catch unregister(Name));
-unregister_name({global,Name}) ->
-    _ = global:unregister_name(Name);
-unregister_name({via, Mod, Name}) ->
-    _ = Mod:unregister_name(Name);
-unregister_name(Pid) when is_pid(Pid) ->
-    Pid.
-
 %%-----------------------------------------------------------------
 %% The MAIN loop
 %%-----------------------------------------------------------------

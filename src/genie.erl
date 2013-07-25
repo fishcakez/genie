@@ -77,7 +77,9 @@
 	 call/3, call/4, reply/2,
 	 starter_mode/1, starter_process/1,
 	 debug_options/1, debug_options/2,
-	 format_status_header/2]).
+	 format_status_header/2,
+	 register_name/2, unregister_name/1,
+	 whereis_name/1]).
 
 %% Internal exports
 -export([init_it/7, init_it/8]).
@@ -193,7 +195,7 @@ start(GenMod, LinkP, Mod, Args, Options) ->
 	    Mod :: module(), Args :: term(), Options :: options()) ->
 	start_ret().
 start(GenMod, LinkP, Name, Mod, Args, Options) ->
-    case where(Name) of
+    case whereis_name(Name) of
 	undefined ->
 	    AsyncTimeout = async_timeout(Options),
 	    do_spawn(GenMod, LinkP, Name, Mod, Args, Options, AsyncTimeout);
@@ -356,7 +358,7 @@ call(Name, Label, Request, Timeout)
 	  (tuple_size(Name) == 3 andalso element(1, Name) == via))
        andalso
        (Timeout =:= infinity orelse (is_integer(Timeout) andalso Timeout >= 0)) ->
-    case where(Name) of
+    case whereis_name(Name) of
 	Pid when is_pid(Pid) ->
 	    Node = node(Pid),
  	    try do_call(Pid, Label, Request, Timeout)
@@ -462,6 +464,83 @@ format_status_header(TagLine, LocalName) when is_atom(LocalName) ->
 format_status_header(TagLine, RegName) ->
     {TagLine, RegName}.
 
+%% @doc Associate the `Name' with the process `Pid'.
+%%
+%% `Name' can be of the form `{local, LocalName}', in which case the process,
+%% `Pid', will be registered locally as `Localname'. If `Name' is
+%% `{global, GlobalName}' `Pid' is registered globally as `GlobalName'. If
+%% `Name' is `{via, Module, ViaName}' `Pid' is registered by calling
+%% `Module:register_name(ViaName, Pid)'. A successful registration will
+%% return `yes' and a failure `no'.
+%%
+%% For convenience `Name' can also be a pid. In this case no action occurs, if
+%% `Name' is equal to `Pid' `yes' is returned otherwise `no'.
+-spec register_name(Name, Pid) -> yes | no when
+      Name :: emgr_name(),
+      Pid :: pid().
+register_name({local, LocalName}, Pid) ->
+    try register(LocalName, Pid) of
+	true ->
+	    yes
+    catch
+	error:badarg ->
+	    no
+    end;
+register_name({global, GlobalName}, Pid) ->
+    global:register_name(GlobalName, Pid);
+register_name({via, Module, ViaName}, Pid) ->
+    Module:register_name(ViaName, Pid);
+register_name(Pid, Pid) when is_pid(Pid) ->
+    yes;
+register_name(Pid, Pid2) when is_pid(Pid) andalso is_pid(Pid2) ->
+    no.
+
+%% @doc Removes the association, if it exists, between `Name' and a process.
+%%
+%% `Name' can be of the form `{local, LocalName}', in which case `LocalName'
+%% will be unregistered locally.If `Name' is
+%% `{global, GlobalName}' `GlobalName' will be unregistered globally. If `Name'
+%% is `{via, Module, ViaName}' `ViaName' will be unregistered by calling
+%% `Module:unregister_name(ViaName)'. The function always returns `true'.
+%%
+%% For convenience `Name' can also be a pid. In this case no action occurs and
+%% `true' is returned.
+-spec unregister_name(Name) -> true when
+      Name :: emgr_name() | pid().
+unregister_name({local, LocalName}) ->
+    _ = (catch unregister(LocalName)),
+    true;
+unregister_name({global, GlobalName}) ->
+    _ = global:unregister_name(GlobalName),
+    true;
+unregister_name({via, Module, ViaName}) ->
+    _ = Module:unregister_name(ViaName),
+    true;
+unregister_name(Pid) when is_pid(Pid) ->
+    true.
+
+%% @doc Returns the pid associated with `Name'.
+%%
+%% `Name' can be of the form `{local, LocalName}', in which case the local
+%% pid of the process locally registered as `LocalName' will be returned. If
+%% `Name' is `{global, GlobalName}', the pid of process globally registered as
+%% `GlobalName'. If `Name' is `{via, Module, ViaName}', the pid of the process
+%% associated with `ViaName' will be returned by calling
+%% `Module:whereis_name(ViaName)'. If no process is associate with a `Name' then
+%% `undefined' is returned.
+%%
+%% For convenience `Name' can also be a pid. In this case no action occurs and
+%% the pid is returned.
+-spec whereis_name(Name) -> undefined | pid() when
+      Name :: emgr_name() | pid().
+whereis_name({local, LocalName}) ->
+    whereis(LocalName);
+whereis_name({global, GlobalName}) ->
+    global:whereis_name(GlobalName);
+whereis_name({via, Module, ViaName}) ->
+    Module:whereis_name(ViaName);
+whereis_name(Pid) when is_pid(Pid) ->
+    Pid.
 
 %%%========================================================================
 %%% Proc lib-callback functions
@@ -480,15 +559,16 @@ init_it(GenMod, Starter, Parent, Mod, Args, Options, AsyncTimeout) ->
 
 %% @private
 init_it(GenMod, Starter, Parent, Name, Mod, Args, Options, AsyncTimeout) ->
-    case name_register(Name) of
-	true when AsyncTimeout =:= false ->
+    case register_name(Name, self()) of
+	yes when AsyncTimeout =:= false ->
 	    init_it2(GenMod, Starter, Parent, Name, Mod, Args, Options,
 		     AsyncTimeout);
-	true ->
+	yes ->
 	    proc_lib:init_ack(Starter, {ok, self()}),
 	    init_it2(GenMod, Starter, Parent, Name, Mod, Args, Options,
 		     AsyncTimeout);
-	{false, Pid} ->
+	no ->
+	    Pid = whereis_name(Name),
 	    proc_lib:init_ack(Starter, {error, {already_started, Pid}})
     end.
 
@@ -651,30 +731,6 @@ wait_resp(Node, Tag, Timeout) ->
 %%%-----------------------------------------------------------------
 %%%  Misc. functions.
 %%%-----------------------------------------------------------------
-where({global, Name}) -> global:whereis_name(Name);
-where({via, Module, Name}) -> Module:whereis_name(Name);
-where({local, Name})  -> whereis(Name).
-
-name_register({local, Name} = LN) ->
-    try register(Name, self()) of
-	true -> true
-    catch
-	error:_ ->
-	    {false, where(LN)}
-    end;
-name_register({global, Name} = GN) ->
-    case global:register_name(Name, self()) of
-	yes -> true;
-	no -> {false, where(GN)}
-    end;
-name_register({via, Module, Name} = GN) ->
-    case Module:register_name(Name, self()) of
-	yes ->
-	    true;
-	no ->
-	    {false, where(GN)}
-    end.
-
 async_timeout(Options) ->
     case opt(async, Options) of
 	{ok, infinity} ->

@@ -167,19 +167,19 @@ init_it(Starter, Parent, Name, Mod, Args, Options) ->
 	    %% `genie:init_ack/2' because a supervisor may try to restart a
 	    %% process on receiving the acknowledgment and fail with
 	    %% `{error, {already_started, Pid}}'.
-	    unregister_name(Name),
+	    genie:unregister_name(Name),
 	    genie:init_ack(Starter, {error, Reason}),
 	    exit(Reason);
 	%% Sometimes there is no error but the process should not continue, in
 	%% in this case `ignore' is used. Note that the process exits with
 	%% reason `normal'.
 	ignore ->
-	    unregister_name(Name),
+	    genie:unregister_name(Name),
 	    genie:init_ack(Starter, ignore),
 	    exit(normal);
 	%% An error occured in `Mod:init/1'.
 	{'EXIT', Reason} ->
-	    unregister_name(Name),
+	    genie:unregister_name(Name),
 	    genie:init_ack(Starter, {error, Reason}),
 	    exit(Reason);
 	%% Some went wrong. A generic behaviour should handle invalid return
@@ -241,17 +241,6 @@ system_code_change([Name, Mod, State], _Module, OldVsn, Extra) ->
     end.
 
 %% internal
-
-%% init functions
-
-unregister_name({local, LocalName}) ->
-    catch unregister(LocalName);
-unregister_name({global, GlobalName}) ->
-    global:unregister_name(GlobalName);
-unregister_name({via, Module, ViaName}) ->
-    Module:unregister_name(ViaName);
-unregister_name(Pid) when is_pid(Pid) ->
-    ok.
 
 %% Main loop functions.
 
