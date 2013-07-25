@@ -80,7 +80,7 @@
 	 format_status_header/2,
 	 register_name/2, unregister_name/1,
 	 whereis_name/1,
-	 proc_name/1, proc_name/2]).
+	 proc_name/1, proc_name/2, parent/0]).
 
 %% Internal exports
 -export([init_it/7, init_it/8]).
@@ -600,6 +600,21 @@ proc_name(Name, Opts) ->
 	    proc_name(Name)
     end.
 
+%% @doc Returns the parent of the calling process.
+%%
+%% If the process was spawned using `proc_lib' the parent process is returned,
+%% otherwise the function exits.
+-spec parent() -> pid().
+parent() ->
+    case get('$ancestors') of
+	[Parent | _] when is_pid(Parent)->
+            Parent;
+        [Parent | _] when is_atom(Parent)->
+            name_to_pid(Parent);
+	_ ->
+	    exit(process_was_not_started_by_proc_lib)
+    end.
+
 %%%========================================================================
 %%% Proc lib-callback functions
 %%%========================================================================
@@ -898,3 +913,16 @@ get_proc_name(Pid) when Pid =:= self() ->
     Pid;
 get_proc_name(Pid) when is_pid(Pid) ->
     exit({process_not, Pid}).
+
+name_to_pid(Name) ->
+    case whereis(Name) of
+	undefined ->
+	    case global:whereis_name(Name) of
+		undefined ->
+		    exit(could_not_find_registered_name);
+		Pid ->
+		    Pid
+	    end;
+	Pid ->
+	    Pid
+    end.

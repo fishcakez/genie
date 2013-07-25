@@ -290,32 +290,9 @@ enter_loop(Mod, Options, StateName, StateData, Timeout) ->
 
 enter_loop(Mod, Options, StateName, StateData, ServerName, Timeout) ->
     Name = genie:proc_name(ServerName, [verify]),
-    Parent = get_parent(),
+    Parent = genie:parent(),
     Debug = genie:debug_options(Name, Options),
     loop(Parent, Name, StateName, StateData, Mod, Timeout, Debug).
-
-get_parent() ->
-    case get('$ancestors') of
-	[Parent | _] when is_pid(Parent) ->
-	    Parent;
-	[Parent | _] when is_atom(Parent) ->
-	    name_to_pid(Parent);
-	_ ->
-	    exit(process_was_not_started_by_proc_lib)
-    end.
-
-name_to_pid(Name) ->
-    case whereis(Name) of
-	undefined ->
-	    case global:whereis_name(Name) of
-		undefined ->
-		    exit(could_not_find_registered_name);
-		Pid ->
-		    Pid
-	    end;
-	Pid ->
-	    Pid
-    end.
 
 %%% ---------------------------------------------------
 %%% Initiate the new process.
