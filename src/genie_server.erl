@@ -192,24 +192,8 @@ call(Name, Request, Timeout) ->
 %% -----------------------------------------------------------------
 %% Make a cast to a generic server.
 %% -----------------------------------------------------------------
-cast({global,Name}, Request) ->
-    catch global:send(Name, cast_msg(Request)),
-    ok;
-cast({via, Mod, Name}, Request) ->
-    catch Mod:send(Name, cast_msg(Request)),
-    ok;
-cast({Name,Node}=Dest, Request) when is_atom(Name), is_atom(Node) -> 
-    do_cast(Dest, Request);
-cast(Dest, Request) when is_atom(Dest) ->
-    do_cast(Dest, Request);
-cast(Dest, Request) when is_pid(Dest) ->
-    do_cast(Dest, Request).
-
-do_cast(Dest, Request) -> 
-    do_send(Dest, cast_msg(Request)),
-    ok.
-    
-cast_msg(Request) -> {'$gen_cast',Request}.
+cast(Process, Request) ->
+    genie:cast(Process, '$gen_cast', Request).
 
 %% -----------------------------------------------------------------
 %% Send a reply to the client.
@@ -231,6 +215,7 @@ do_abcast([Node|Nodes], Name, Msg) when is_atom(Node) ->
     do_abcast(Nodes, Name, Msg);
 do_abcast([], _,_) -> abcast.
 
+cast_msg(Request) -> {'$gen_cast',Request}.
 %%% -----------------------------------------------------------------
 %%% Make a call to servers at several nodes.
 %%% Returns: {[Replies],[BadNodes]}

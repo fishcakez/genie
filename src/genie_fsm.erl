@@ -189,15 +189,8 @@ start_link(Name, Mod, Args, Options) ->
     genie:start(?MODULE, link, Name, Mod, Args, Options).
 
 
-send_event({global, Name}, Event) ->
-    catch global:send(Name, {'$gen_event', Event}),
-    ok;
-send_event({via, Mod, Name}, Event) ->
-    catch Mod:send(Name, {'$gen_event', Event}),
-    ok;
 send_event(Name, Event) ->
-    Name ! {'$gen_event', Event},
-    ok.
+    genie:send(Name, '$gen_event', Event).
 
 sync_send_event(Name, Event) ->
     case catch genie:call(Name, '$gen_sync_event', Event) of
@@ -215,15 +208,8 @@ sync_send_event(Name, Event, Timeout) ->
 	    exit({Reason, {?MODULE, sync_send_event, [Name, Event, Timeout]}})
     end.
 
-send_all_state_event({global, Name}, Event) ->
-    catch global:send(Name, {'$gen_all_state_event', Event}),
-    ok;
-send_all_state_event({via, Mod, Name}, Event) ->
-    catch Mod:send(Name, {'$gen_all_state_event', Event}),
-    ok;
 send_all_state_event(Name, Event) ->
-    Name ! {'$gen_all_state_event', Event},
-    ok.
+    genie:send(Name, '$gen_all_state_event', Event).
 
 sync_send_all_state_event(Name, Event) ->
     case catch genie:call(Name, '$gen_sync_all_state_event', Event) of

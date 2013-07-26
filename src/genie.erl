@@ -74,6 +74,7 @@
 
 %% API
 -export([start/5, start/6, init_ack/2,
+	 cast/3, send/3,
 	 call/3, call/4, reply/2,
 	 starter_mode/1, starter_process/1,
 	 debug_options/1, debug_options/2,
@@ -268,6 +269,103 @@ starter_process(Pid) when is_pid(Pid) ->
     Pid;
 starter_process({async, Pid, _}) when is_pid(Pid) ->
     Pid.
+
+%% @doc Sends an asynchronous request to `Process' and returns ok immediately,
+%% regardless of whether or not `Process' exists.
+%%
+%% `Process', the target of the cast, can take many forms apart from a pid.
+%% It can be the name of a locally registered process, or if the it is
+%% registered locally on a different node `{LocalName, Node}'. If the process is
+%% registered globally `Process' is `{global, GlobalName}'. If registered via an
+%% alternative module using `Module:register_name/2', `Process' is
+%% `{via, Module, ViaName}'.
+%%
+%% `Label' is an term used by the generic process to identify that the message
+%% is a call, and possibly a particular type of call.
+%%
+%% `Request' is a term which communicates the meaning of the request in the cast
+%% message.
+%%
+%% A message sent by `cast/3' takes the form `{Label, Request}' and may arrive
+%% in a different to order to they are sent.
+-spec cast(Process, Label, Request) -> ok when
+      Process :: (Pid :: pid())
+	       | LocalName
+	       | ({LocalName, Node :: node()})
+	       | ({global, GlobalName :: global_name()})
+	       | ({via, Module :: module(), ViaName :: via_name()}),
+      LocalName :: local_name(),
+      Label :: term(),
+      Request :: term().
+cast({global, GlobalName}, Label, Request) ->
+    Pid = global:whereis_name(GlobalName),
+    do_cast(Pid, Label, Request);
+cast({via, Module, ViaName}, Label, Request) ->
+    Pid = Module:whereis_name(ViaName, Request),
+    do_cast(Pid, Label, Request);
+cast(LocalName, Label, Request) when is_atom(LocalName) ->
+    do_cast(LocalName, Label, Request);
+cast({LocalName, Node} = Process, Label, Request)
+  when is_atom(LocalName) andalso is_atom(Node) ->
+    do_cast(Process, Label, Request);
+cast(Pid, Label, Request) when is_pid(Pid) ->
+    do_cast(Pid, Label, Request).
+
+%% @doc Sends an asynchronous request to `Process' and returns ok.
+%%
+%% `Process', the target of the send, can take many forms apart from a pid.
+%% It can be the name of a locally registered process, if no process is
+%% associated with the name, a `badarg' error will be thrown. However if the
+%% it is the name of a process registered locally on a different node,
+%% `{LocalName, Node}', and the node does not exist or no process is associated
+%% with `LocalName' no error will be thrown. If the process is registered
+%% globally as `Globalname', `Process' is `{global, GlobalName}'. If no process
+%% is assoicated globally with `GlobalName' a `badarg' error will be thrown. If
+%% registered via an alternative module using `Module:register_name/2' as
+%% `ViaName', `Process' is `{via, Module, ViaName}' and similarly if there is no
+%% associated process a `badarg' error will be thrown.
+%%
+%% `Label' is an term used by the generic process to identify that the message
+%% is a send or cast, and possibly a particular type of send or cast.
+%%
+%% `Request' is a term which communicates the meaning of the request in the cast
+%% message.
+%%
+%% `send/3' is different to `cast/3'. `send/3' will fail with reason `badarg' if
+%% it is passed a name that is associated with a process and it is known - on
+%% the local node - that no process is associated with that name, whereas
+%% `cast/3' will always return ok. Also `send/3' will block while trying to
+%% connect to another node, whereas `cast/3' will not. This means that `send/3'
+%% messages will arrive in the order they are sent - though there is no
+%% guarantee that all messages will be delivered.
+%%
+%% `send/3' messages takes the same form as `cast/3' messages:
+%% `{Label, Request}'.
+-spec send(Process, Label, Request) -> ok when
+      Process :: (Pid :: pid())
+	       | LocalName
+	       | ({LocalName, Node :: node()})
+	       | ({global, GlobalName :: global_name()})
+	       | ({via, Module :: module(), ViaName :: via_name()}),
+      LocalName :: local_name(),
+      Label :: term(),
+      Request :: term().
+send({global, GlobalName}, Label, Request) ->
+    _ = global:send(GlobalName, {Label, Request}),
+    ok;
+send({via, Module, ViaName}, Label, Request) ->
+    _ = Module:send(ViaName, {Label, Request}),
+    ok;
+send(LocalName, Label, Request) when is_atom(LocalName) ->
+    erlang:send(LocalName, {Label, Request}),
+    ok;
+send({LocalName, Node} = Process, Label, Request)
+  when is_atom(LocalName) andalso is_atom(Node) ->
+    erlang:send(Process, {Label, Request}),
+    ok;
+send(Pid, Label, Request) when is_pid(Pid) ->
+    erlang:send(Pid, {Label, Request}),
+    ok.
 
 %% @doc Makes a synchronous call to a generic process.
 %%
@@ -727,6 +825,16 @@ init_it2(GenMod, Starter, Parent, Name, Mod, Args, Options, AsyncTimeout) ->
 %%% ---------------------------------------------------
 %%% Send/receive functions
 %%% ---------------------------------------------------
+
+do_cast(Process, Label, Request) ->
+    Msg = {Label, Request},
+    case catch erlang:send(Process, Msg, [noconnect]) of
+	noconnect ->
+	    spawn(erlang, send, [Process, Msg]),
+	    ok;
+	_Other ->
+	    ok
+    end.
 
 do_call(Process, Label, Request, Timeout) ->
     try erlang:monitor(process, Process) of
