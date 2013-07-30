@@ -201,8 +201,8 @@ cast_list(Processes, Request) ->
 %% @doc Send a reply to call.
 %%
 %% @see gen_server:reply/2
-reply({To, Tag}, Reply) ->
-    catch To ! {Tag, Reply}.
+reply(From, Reply) ->
+    genie:reply(From, Reply).
 
 %% ----------------------------------------------------------------- 
 %% Asyncronous broadcast, returns nothing, it's just send'n prey

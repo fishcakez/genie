@@ -622,11 +622,11 @@ from(_) -> undefined.
 %% @doc Send a reply to synchronous event.
 %%
 %% @see gen_fsm:reply/2
-reply({To, Tag}, Reply) ->
-    catch To ! {Tag, Reply}.
+reply(From, Reply) ->
+    genie:reply(From, Reply).
 
-reply(Name, {To, Tag}, Reply, Debug, StateName) ->
-    reply({To, Tag}, Reply),
+reply(Name, {To, _Tag} = From, Reply, Debug, StateName) ->
+    genie:reply(From, Reply),
     sys:handle_debug(Debug, fun print_event/3, Name,
 		     {out, Reply, To, StateName}).
 
