@@ -26,6 +26,7 @@
 -export([all/0, groups/0,init_per_suite/1, end_per_suite/1, 
 	 init_per_group/2,end_per_group/2]).
 -export([start/1, crash/1, call/1, cast/1, cast_fast/1,
+	 cast_list/1, cast_list_fast/1,
 	 info/1, abcast/1, multicall/1, multicall_down/1,
 	 call_remote1/1, call_remote2/1, call_remote3/1,
 	 call_remote_n1/1, call_remote_n2/1, call_remote_n3/1,
@@ -56,8 +57,8 @@
 	 handle_info/2, terminate/2, format_status/2]).
 
 all() -> 
-    [start, crash, call, cast, cast_fast, info, abcast,
-     multicall, multicall_down, call_remote1, call_remote2,
+    [start, crash, call, cast, cast_fast, cast_list, cast_list_fast,
+     info, abcast, multicall, multicall_down, call_remote1, call_remote2,
      call_remote3, call_remote_n1, call_remote_n2,
      call_remote_n3, call_list, call_list_remote1,
      call_list_remote2, call_list_remote3, call_list_remote_n1,
@@ -504,6 +505,151 @@ cast_fast(Config) when is_list(Config) ->
     ?line [Node] = nodes(),
     ?line {Time,ok} = test_server:timecall(genie_server, cast, 
 					   [{hopp,FalseNode},hopp]),
+    ?line true = test_server:stop_node(Node),
+    ?line if Time > 1.0 -> % Default listen timeout is about 7.0 s
+		  test_server:fail(hanging_cast);
+	     true -> 
+		  ok
+	  end.
+
+cast_list(suite) -> [];
+cast_list(Config) when is_list(Config) ->
+    ?line dummy_via:reset(),
+
+    ?line {ok, Pid} =
+	genie_server:start({local, my_test_name},
+			 genie_server_SUITE, [], []),
+    ?line {ok, Pid2} = genie_server:start(genie_server_SUITE, [], []),
+    ?line {ok, Pid3} = genie_server:start(genie_server_SUITE, [], []),
+    ?line {ok, Pid4} =
+	genie_server:start({global, my_test_name}, genie_server_SUITE, [], []),
+    ?line {ok, Pid5} =
+	genie_server:start({via, dummy_via, my_test_name},
+			   genie_server_SUITE, [], []),
+    ?line ok = genie_server:call(my_test_name, started_p),
+    ?line ok = genie_server:call(Pid2, started_p),
+    ?line ok = genie_server:call(Pid3, started_p),
+    ?line ok = genie_server:call({global, my_test_name}, started_p),
+    ?line ok = genie_server:call({via, dummy_via, my_test_name}, started_p),
+
+    ?line ok = genie_server:cast_list([my_test_name, Pid2, {Pid3, pidref},
+				       {global, my_test_name},
+				       {via, dummy_via, my_test_name}],
+				      {self(),handle_cast}),
+    ?line receive
+	      {Pid, handled_cast} ->
+		  ok
+	  after 1000 ->
+		  test_server:fail(handle_cast)
+	  end,
+    ?line receive
+	      {Pid2, handled_cast} ->
+		  ok
+	  after 1000 ->
+		    test_server:fail(handle_cast)
+	  end,
+   ?line receive
+	      {Pid3, handled_cast} ->
+		  ok
+	  after 1000 ->
+		    test_server:fail(handle_cast)
+	  end,
+    ?line receive
+	      {Pid4, handled_cast} ->
+		  ok
+	  after 1000 ->
+		  test_server:fail(handle_cast)
+	  end,
+    ?line receive
+	      {Pid5, handled_cast} ->
+		  ok
+	  after 1000 ->
+		    test_server:fail(handle_cast)
+	  end,
+
+    ?line ok = genie_server:cast_list([my_test_name, Pid2, {Pid3, pidref},
+				       {global, my_test_name},
+				       {via, dummy_via, my_test_name}],
+				      {self(),delayed_cast,1}),
+    ?line receive
+	      {Pid, delayed} ->
+		  ok
+	  after 1000 ->
+		  test_server:fail(delayed_cast)
+	  end,
+     ?line receive
+	      {Pid2, delayed} ->
+		  ok
+	  after 1000 ->
+		  test_server:fail(delayed_cast)
+	  end,
+    ?line receive
+	      {Pid3, delayed} ->
+		  ok
+	  after 1000 ->
+		  test_server:fail(delayed_cast)
+	  end,
+     ?line receive
+	      {Pid4, delayed} ->
+		  ok
+	  after 1000 ->
+		  test_server:fail(delayed_cast)
+	  end,
+    ?line receive
+	      {Pid5, delayed} ->
+		  ok
+	  after 1000 ->
+		  test_server:fail(delayed_cast)
+	  end,
+    ?line ok = genie_server:cast_list([my_test_name, Pid2, {Pid3, pidref},
+				       {global, my_test_name},
+				       {via, dummy_via, my_test_name}],
+				       {self(),stop}),
+     ?line receive
+	      {Pid, stopped} ->
+		  ok
+	  after 1000 ->
+		  test_server:fail(stop)
+	  end,
+    ?line receive
+	      {Pid2, stopped} ->
+		  ok
+	  after 1000 ->
+		  test_server:fail(stop)
+	  end,
+   ?line receive
+	      {Pid3, stopped} ->
+		  ok
+	  after 1000 ->
+		  test_server:fail(stop)
+	  end,
+    ?line receive
+	      {Pid4, stopped} ->
+		  ok
+	  after 1000 ->
+		  test_server:fail(stop)
+	  end,
+    ?line receive
+	      {Pid5, stopped} ->
+		  ok
+	  after 1000 ->
+		  test_server:fail(stop)
+	  end,
+    ok.
+
+cast_list_fast(suite) -> [];
+cast_list_fast(doc) -> ["Test that cast really return immediately"];
+cast_list_fast(Config) when is_list(Config) ->
+    ?line {ok,Node} = start_node(hubba),
+    ?line {_,"@"++Host} = lists:splitwith(fun ($@) -> false; (_) -> true end,
+					   atom_to_list(Node)),
+    ?line FalseNode = list_to_atom("hopp@"++Host),
+    ?line true = rpc:cast(Node, ?MODULE, cast_fast_messup, []),
+%    ?line io:format("Nodes ~p~n", [rpc:call(N, ?MODULE, cast_fast_messup, [])]),
+    ?line test_server:sleep(1000),
+    ?line [Node] = nodes(),
+    ?line {Time,ok} = test_server:timecall(genie_server, cast_list, 
+					   [[{hopp,FalseNode}],hopp]),
     ?line true = test_server:stop_node(Node),
     ?line if Time > 1.0 -> % Default listen timeout is about 7.0 s
 		  test_server:fail(hanging_cast);

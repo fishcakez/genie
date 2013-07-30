@@ -106,8 +106,8 @@
 
 -export([start/3, start/4,
 	 start_link/3, start_link/4,
-	 send_event/2, sync_send_event/2, sync_send_event/3,
-	 send_all_state_event/2,
+	 send_event/2, send_list_event/2, sync_send_event/2, sync_send_event/3,
+	 send_all_state_event/2, send_list_all_state_event/2,
 	 sync_send_all_state_event/2, sync_send_all_state_event/3,
 	 reply/2,
 	 start_timer/2,send_event_after/2,cancel_timer/1,
@@ -192,6 +192,9 @@ start_link(Name, Mod, Args, Options) ->
 send_event(Name, Event) ->
     genie:send(Name, '$gen_event', Event).
 
+send_list_event(Names, Event) ->
+    genie:send_list(Names, '$gen_event', Event).
+
 sync_send_event(Name, Event) ->
     case catch genie:call(Name, '$gen_sync_event', Event) of
 	{ok,Res} ->
@@ -210,6 +213,9 @@ sync_send_event(Name, Event, Timeout) ->
 
 send_all_state_event(Name, Event) ->
     genie:send(Name, '$gen_all_state_event', Event).
+
+send_list_all_state_event(Names, Event) ->
+    genie:send_list(Names, '$gen_all_state_event', Event).
 
 sync_send_all_state_event(Name, Event) ->
     case catch genie:call(Name, '$gen_sync_all_state_event', Event) of

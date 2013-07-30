@@ -32,6 +32,8 @@
 
 -export([shutdown/1]).
 
+-export([send_list/1]).
+
 -export([ sys1/1, call_format_status/1, error_format_status/1, get_state/1, replace_state/1]).
 
 -export([hibernate/1,hiber_idle/3,hiber_wakeup/3,hiber_idle/2,hiber_wakeup/2]).
@@ -61,7 +63,7 @@
 
 
 all() ->
-    [{group, start}, {group, abnormal}, shutdown,
+    [{group, start}, {group, abnormal}, shutdown, send_list,
      {group, sys}, hibernate, enter_loop, {group, async}].
 
 groups() ->
@@ -353,7 +355,74 @@ shutdown(Config) when is_list(Config) ->
 
     ok.
 
+send_list(Config) when is_list(Config) ->
+    ?line dummy_via:reset(),
 
+    ?line {ok, Pid} =
+	genie_fsm:start({local, my_test_name},
+			genie_fsm_SUITE, [], []),
+    ?line {ok, Pid2} = genie_fsm:start(genie_fsm_SUITE, [], []),
+    ?line {ok, Pid3} = genie_fsm:start(genie_fsm_SUITE, [], []),
+    ?line {ok, Pid4} =
+	genie_fsm:start({global, my_test_name}, genie_fsm_SUITE, [], []),
+    ?line {ok, Pid5} =
+	genie_fsm:start({via, dummy_via, my_test_name},
+			genie_fsm_SUITE, [], []),
+
+    ?line ok = genie_fsm:send_list_event([my_test_name, Pid2, {Pid3, pidref},
+					  {global, my_test_name},
+					  {via, dummy_via, my_test_name}],
+					 {connect, self()}),
+    ?line ok = rec_accepts(5),
+    ?line ok = genie_fsm:send_list_all_state_event([my_test_name, Pid2,
+						    {Pid3, pidref},
+						    {global, my_test_name},
+						    {via, dummy_via,
+						     my_test_name}],
+						   {stop, self()}),
+    ?line receive
+	      {Pid, stopped} ->
+		  ok
+	  after 1000 ->
+		    test_server:fail(stop)
+	  end,
+    ?line receive
+	      {Pid2, stopped} ->
+		  ok
+	  after 1000 ->
+		    test_server:fail(stop)
+	  end,
+    ?line receive
+	      {Pid3, stopped} ->
+		  ok
+	  after 1000 ->
+		    test_server:fail(stop)
+	  end,
+    ?line receive
+	      {Pid4, stopped} ->
+		  ok
+	  after 1000 ->
+		    test_server:fail(stop)
+	  end,
+    ?line receive
+	      {Pid5, stopped} ->
+		  ok
+	  after 1000 ->
+		    test_server:fail(stop)
+	  end,
+
+    ok.
+
+rec_accepts(0) ->
+    ok;
+rec_accepts(N) ->
+	receive
+	    accept ->
+		rec_accepts(N-1)
+	after
+	    1000 ->
+		error
+	end.
 
 sys1(Config) when is_list(Config) ->
     ?line {ok, Pid} = 
@@ -1367,6 +1436,9 @@ handle_event(stop_shutdown, _State, Data) ->
     {stop, shutdown, Data};
 handle_event(stop_shutdown_reason, _State, Data) ->
     {stop, shutdown, Data};
+handle_event({stop, Pid}, _State, Data) ->
+    Pid ! {self(), stopped},
+    {stop, normal, Data};
 handle_event({'alive?', Pid}, State, Data) ->
     Pid ! yes,
     {next_state, State, Data}.

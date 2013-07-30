@@ -89,7 +89,7 @@
 -export([start/3, start/4,
 	 start_link/3, start_link/4,
 	 call/2, call/3,
-	 cast/2, reply/2,
+	 cast/2, cast_list/2, reply/2,
 	 abcast/2, abcast/3,
 	 multi_call/2, multi_call/3, multi_call/4,
 	 call_list/2, call_list/3,
@@ -195,6 +195,12 @@ call(Name, Request, Timeout) ->
 %% -----------------------------------------------------------------
 cast(Process, Request) ->
     genie:cast(Process, '$gen_cast', Request).
+
+%% -----------------------------------------------------------------
+%% Make a cast to a list of generic servers.
+%% -----------------------------------------------------------------
+cast_list(Processes, Request) ->
+    genie:cast_list(Processes, '$gen_cast', Request).
 
 %% -----------------------------------------------------------------
 %% Send a reply to the client.

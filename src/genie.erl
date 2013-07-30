@@ -74,7 +74,8 @@
 
 %% API
 -export([start/5, start/6, init_ack/2,
-	 cast/3, send/3,
+	 cast/3, cast_list/3,
+	 send/3, send_list/3,
 	 call/3, call/4,
 	 call_list/3, call_list/4,
 	 reply/2,
@@ -301,17 +302,51 @@ starter_process({async, Pid, _}) when is_pid(Pid) ->
       Request :: term().
 cast({global, GlobalName}, Label, Request) ->
     Pid = global:whereis_name(GlobalName),
-    do_cast(Pid, Label, Request);
+    do_cast(Pid, {Label, Request});
 cast({via, Module, ViaName}, Label, Request) ->
     Pid = Module:whereis_name(ViaName, Request),
-    do_cast(Pid, Label, Request);
+    do_cast(Pid, {Label, Request});
 cast(LocalName, Label, Request) when is_atom(LocalName) ->
-    do_cast(LocalName, Label, Request);
+    do_cast(LocalName, {Label, Request});
 cast({LocalName, Node} = Process, Label, Request)
   when is_atom(LocalName) andalso is_atom(Node) ->
-    do_cast(Process, Label, Request);
+    do_cast(Process, {Label, Request});
 cast(Pid, Label, Request) when is_pid(Pid) ->
-    do_cast(Pid, Label, Request).
+    do_cast(Pid, {Label, Request}).
+
+%% @doc Sends asynchronous requests to a list of generic processes and
+%% returns ok immediatly, regardless of whether or not any of the processes
+%% exist.
+%%
+%% This function efficiently carries out a cast for each process in `Processes'.
+%% It is equivalent to making several `cast/3' calls and collecting the results.
+%%
+%% `Processes' is a list of targets for the call. The elements of `Processes'
+%% take the same form as the `Process' argument for `cast/3' with an additional
+%% type: `{Pid, ProcessRef}'. This special case will make a call to `Pid' but
+%% associate the result of the call with `ProcessRef'.
+%%
+%% `Label' and `Request' are identical to their arguments in `cast/3'.
+%%
+%% There is no guarantee of message ordering when `cast_list/3' is called
+%% multiple times.
+%%
+%% @see cast/3
+-spec cast_list(Processes, Label, Request) -> ok when
+      Processes :: [(Process | {pid(), ProcessRef})],
+      Process :: (Pid :: pid())
+	       | LocalName
+	       | ({LocalName, Node :: node()})
+	       | ({global, GlobalName :: global_name()})
+	       | ({via, Module :: module(), ViaName :: via_name()}),
+      ProcessRef :: term(),
+      LocalName :: local_name(),
+      Label :: term(),
+      Request :: term().
+cast_list(Processes, Label, Request) ->
+    Msg = {Label, Request},
+    _ = [do_cast_list(Process, Msg) || Process <- Processes],
+    ok.
 
 %% @doc Sends an asynchronous request to `Process' and returns ok.
 %%
@@ -367,6 +402,39 @@ send({LocalName, Node} = Process, Label, Request)
     ok;
 send(Pid, Label, Request) when is_pid(Pid) ->
     erlang:send(Pid, {Label, Request}),
+    ok.
+
+%% @doc Sends asynchronous requests to a list of generic processes and
+%% returns ok.
+%%
+%% This function efficiently carries out a cast for each process in `Processes'.
+%% It is equivalent to making several `send/3' calls.
+%%
+%% `Processes' is a list of targets for the call. The elements of `Processes'
+%% take the same form as the `Process' argument for `send/3' with an additional
+%% type: `{Pid, ProcessRef}'. This special case will make a call to `Pid' but
+%% associate the result of the call with `ProcessRef'.
+%%
+%% `Label' and `Request' are identical to their arguments in `send/3'.
+%%
+%% If `send_list/3' is called twice, the messages in the first call will arrive
+%% before those in the second - assuming they are delivered successfully.
+%%
+%% @see send/3
+-spec send_list(Processes, Label, Request) -> ok when
+      Processes :: [(Process | {pid(), ProcessRef})],
+      Process :: (Pid :: pid())
+	       | LocalName
+	       | ({LocalName, Node :: node()})
+	       | ({global, GlobalName :: global_name()})
+	       | ({via, Module :: module(), ViaName :: via_name()}),
+      ProcessRef :: term(),
+      LocalName :: local_name(),
+      Label :: term(),
+      Request :: term().
+send_list(Processes, Label, Request) ->
+    Msg = {Label, Request},
+    _ = [do_send_list(Process, Msg) || Process <- Processes],
     ok.
 
 %% @doc Makes a synchronous call to a generic process.
@@ -899,8 +967,7 @@ init_it2(GenMod, Starter, Parent, Name, Mod, Args, Options, AsyncTimeout) ->
 %%% Send/receive functions
 %%% ---------------------------------------------------
 
-do_cast(Process, Label, Request) ->
-    Msg = {Label, Request},
+do_cast(Process, Msg) ->
     case catch erlang:send(Process, Msg, [noconnect]) of
 	noconnect ->
 	    spawn(erlang, send, [Process, Msg]),
@@ -908,6 +975,50 @@ do_cast(Process, Label, Request) ->
 	_Other ->
 	    ok
     end.
+
+do_cast_list(Pid, Msg) when is_pid(Pid) ->
+    do_cast(Pid, Msg);
+do_cast_list({Pid, _ProcessRef}, Msg) when is_pid(Pid) ->
+    do_cast(Pid, Msg);
+do_cast_list({global, GlobalName}, Msg) ->
+    case global:whereis_name(GlobalName) of
+	Pid when is_pid(Pid) ->
+	    do_cast(Pid, Msg);
+	undefined ->
+	    ok
+    end;
+do_cast_list({via, Module, ViaName}, Msg) ->
+    case Module:whereis_name(ViaName) of
+	Pid when is_pid(Pid) ->
+	    do_cast(Pid, Msg);
+	undefined ->
+	    ok
+    end;
+do_cast_list(LocalName, Msg) when is_atom(LocalName) ->
+    do_cast(LocalName, Msg);
+do_cast_list({LocalName, Node} = Process, Msg)
+  when is_atom(LocalName) andalso is_atom(Node) ->
+    do_cast(Process, Msg).
+
+do_send_list(Pid, Msg) when is_pid(Pid) ->
+    erlang:send(Pid, Msg),
+    ok;
+do_send_list({Pid, _ProcessRef}, Msg) when is_pid(Pid) ->
+    erlang:send(Pid, Msg),
+    ok;
+do_send_list({global, GlobalName}, Msg) ->
+    global:send(GlobalName, Msg),
+    ok;
+do_send_list({via, Module, ViaName}, Msg) ->
+    Module:send(ViaName, Msg),
+    ok;
+do_send_list(LocalName, Msg) when is_atom(LocalName) ->
+    erlang:send(LocalName, Msg),
+    ok;
+do_send_list({LocalName, Node} = Process, Msg)
+  when is_atom(LocalName) andalso is_atom(Node) ->
+    erlang:send(Process, Msg),
+    ok.
 
 do_call(Process, Label, Request, Timeout) ->
     try erlang:monitor(process, Process) of
