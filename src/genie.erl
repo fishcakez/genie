@@ -2,6 +2,7 @@
 %% %CopyrightBegin%
 %%
 %% Copyright Ericsson AB 1996-2013. All Rights Reserved.
+%% Copyright 2013, James Fish <james@fishcakez.com>
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -91,40 +92,41 @@
 
 -define(default_timeout, 5000).
 
--type linkage()     :: 'link' | 'nolink'.
--type local_name()  :: atom().
+-type linkage() :: 'link' | 'nolink'.
+-type local_name() :: atom().
 -type global_name() :: term().
--type via_name()    :: term().
--type emgr_name()   :: {'local', local_name()}
-		     | {'global', global_name()}
-		     | {via, module(), via_name()}.
+-type via_name() :: term().
+-type emgr_name() :: {'local', local_name()}
+		   | {'global', global_name()}
+		   | {via, module(), via_name()}.
 
--type parent()      :: pid() | self.
+-type parent() :: pid() | self.
 
--opaque starter()   :: pid() | {async, pid(), undefined | pid()}.
+-opaque starter() :: pid() | {async, pid(), undefined | pid()}.
 
--type start_ret()   :: {'ok', pid()}
-		     | {ok, pid(), term()}
-		     | 'ignore'
-		     | {'error', term()}.
+-type start_ret() :: {'ok', pid()}
+		   | {ok, pid(), term()}
+		   | 'ignore'
+		   | {'error', term()}.
 
 -type system_event() :: {'in', Msg :: term()}
 		      | {'in', Msg :: term(), From :: term()}
 		      | {'out', Msg :: term(), To :: term()}
 		      | term().
--type debug_flag()  :: 'trace' | 'log' | 'statistics' | 'debug'
-		     | {'log', pos_integer()} | {'logfile', string()}
-		     | {install, {fun((DbgFunState :: term(),
-				       Event :: system_event(),
-				       Misc :: term()) ->
+-type debug_flag() :: 'trace' | 'log' | 'statistics' | 'debug'
+		    | {'log', pos_integer()} | {'logfile', string()}
+		    | {install, {fun((DbgFunState :: term(),
+				      Event :: system_event(),
+				      Misc :: term()) ->
 					done | (DbgFunState2 :: term()))}}.
--type option()      :: {'timeout', timeout()}
-		     | {'debug', [debug_flag()]}
-		     | {'spawn_opt', [proc_lib:spawn_option()]}
-		     | {'async', timeout()}.
--type options()     :: [option()].
+-type option() :: {'timeout', timeout()}
+		| {'debug', [debug_flag()]}
+		| {'spawn_opt', [proc_lib:spawn_option()]}
+		| {'async', timeout()}.
+-type options() :: [option()].
 
--opaque tag()      :: reference().
+-type label() :: atom().
+-opaque tag() :: reference().
 
 -export_type([emgr_name/0, starter/0, options/0, tag/0]).
 
@@ -147,7 +149,13 @@
 %%
 %% @see start/6
 
--spec start(module(), linkage(), module(), term(), options()) -> start_ret().
+-spec start(GenMod, LinkP, Mod, Args, Options) -> Result when
+      GenMod :: module(),
+      LinkP :: linkage(),
+      Mod :: module(),
+      Args :: term(),
+      Options :: options(),
+      Result :: start_ret().
 
 start(GenMod, LinkP, Mod, Args, Options) ->
     AsyncTimeout = async_timeout(Options),
@@ -196,9 +204,15 @@ start(GenMod, LinkP, Mod, Args, Options) ->
 %% @see debug_options/2
 %% @see sys:handle_debug/4
 
--spec start(GenMod :: module(), LinkP :: linkage(), Name :: emgr_name(),
-	    Mod :: module(), Args :: term(), Options :: options()) ->
-	start_ret().
+-spec start(GenMod, LinkP, Name, Mod, Args, Options) -> Result when
+      GenMod :: module(),
+      LinkP :: linkage(),
+      Name :: emgr_name(),
+      Mod :: module(),
+      Args :: term(),
+      Options :: options(),
+      Result :: start_ret().
+
 start(GenMod, LinkP, Name, Mod, Args, Options) ->
     case whereis_name(Name) of
 	undefined ->
@@ -228,6 +242,7 @@ start(GenMod, LinkP, Name, Mod, Args, Options) ->
 -spec init_ack(Starter, Return) -> ok when
       Starter :: starter(),
       Return :: start_ret().
+
 init_ack(Starter, Return) when is_pid(Starter) ->
     proc_lib:init_ack(Starter, Return);
 init_ack({async, _Starter, AsyncTimer}, _Return) when is_pid(AsyncTimer) ->
@@ -256,18 +271,22 @@ init_ack(_Starter, _Return) ->
     ok.
 
 %% @doc Get the mode of initialisation a starter used.
+
 -spec starter_mode(Starter) -> StarterMode when
       Starter :: starter(),
       StarterMode :: sync | async.
+
 starter_mode(Pid) when is_pid(Pid) ->
     sync;
 starter_mode({async, _, _}) ->
     async.
 
 %% @doc Get the starter's pid from the opaque starter term.
+
 -spec starter_process(Starter) -> Pid when
       Starter :: starter(),
       Pid :: pid().
+
 starter_process(Pid) when is_pid(Pid) ->
     Pid;
 starter_process({async, Pid, _}) when is_pid(Pid) ->
@@ -283,7 +302,7 @@ starter_process({async, Pid, _}) when is_pid(Pid) ->
 %% alternative module using `Module:register_name/2', `Process' is
 %% `{via, Module, ViaName}'.
 %%
-%% `Label' is an term used by the generic process to identify that the message
+%% `Label' is an atom used by the generic process to identify that the message
 %% is a call, and possibly a particular type of call.
 %%
 %% `Request' is a term which communicates the meaning of the request in the cast
@@ -291,6 +310,7 @@ starter_process({async, Pid, _}) when is_pid(Pid) ->
 %%
 %% A message sent by `cast/3' takes the form `{Label, Request}' and may arrive
 %% in a different to order to they are sent.
+
 -spec cast(Process, Label, Request) -> ok when
       Process :: (Pid :: pid())
 	       | LocalName
@@ -298,8 +318,9 @@ starter_process({async, Pid, _}) when is_pid(Pid) ->
 	       | ({global, GlobalName :: global_name()})
 	       | ({via, Module :: module(), ViaName :: via_name()}),
       LocalName :: local_name(),
-      Label :: term(),
+      Label :: label(),
       Request :: term().
+
 cast({global, GlobalName}, Label, Request) ->
     Pid = global:whereis_name(GlobalName),
     do_cast(Pid, {Label, Request});
@@ -332,6 +353,7 @@ cast(Pid, Label, Request) when is_pid(Pid) ->
 %% multiple times.
 %%
 %% @see cast/3
+
 -spec cast_list(Processes, Label, Request) -> ok when
       Processes :: [(Process | {pid(), ProcessRef})],
       Process :: (Pid :: pid())
@@ -341,8 +363,9 @@ cast(Pid, Label, Request) when is_pid(Pid) ->
 	       | ({via, Module :: module(), ViaName :: via_name()}),
       ProcessRef :: term(),
       LocalName :: local_name(),
-      Label :: term(),
+      Label :: label(),
       Request :: term().
+
 cast_list(Processes, Label, Request) ->
     Msg = {Label, Request},
     _ = [do_cast_list(Process, Msg) || Process <- Processes],
@@ -362,22 +385,23 @@ cast_list(Processes, Label, Request) ->
 %% `ViaName', `Process' is `{via, Module, ViaName}' and similarly if there is no
 %% associated process a `badarg' error will be thrown.
 %%
-%% `Label' is an term used by the generic process to identify that the message
+%% `Label' is an atom used by the generic process to identify that the message
 %% is a send or cast, and possibly a particular type of send or cast.
 %%
 %% `Request' is a term which communicates the meaning of the request in the cast
 %% message.
 %%
 %% `send/3' is different to `cast/3'. `send/3' will fail with reason `badarg' if
-%% it is passed a name that is associated with a process and it is known - on
-%% the local node - that no process is associated with that name, whereas
-%% `cast/3' will always return ok. Also `send/3' will block while trying to
-%% connect to another node, whereas `cast/3' will not. This means that `send/3'
-%% messages will arrive in the order they are sent - though there is no
-%% guarantee that all messages will be delivered.
+%% it is passed a name that is not associated with a process - and the name is
+%% not of the form `{LocalName, Node}', whereas `cast/3' will always return ok.
+%% Also `send/3' will block while trying to connect to another node, whereas
+%% `cast/3' will not. This means that `send/3' messages will arrive in the order
+%% they are sent - though there is no guarantee that all messages will be
+%% delivered.
 %%
 %% `send/3' messages takes the same form as `cast/3' messages:
 %% `{Label, Request}'.
+
 -spec send(Process, Label, Request) -> ok when
       Process :: (Pid :: pid())
 	       | LocalName
@@ -385,8 +409,9 @@ cast_list(Processes, Label, Request) ->
 	       | ({global, GlobalName :: global_name()})
 	       | ({via, Module :: module(), ViaName :: via_name()}),
       LocalName :: local_name(),
-      Label :: term(),
+      Label :: label(),
       Request :: term().
+
 send({global, GlobalName}, Label, Request) ->
     _ = global:send(GlobalName, {Label, Request}),
     ok;
@@ -421,6 +446,7 @@ send(Pid, Label, Request) when is_pid(Pid) ->
 %% before those in the second - assuming they are delivered successfully.
 %%
 %% @see send/3
+
 -spec send_list(Processes, Label, Request) -> ok when
       Processes :: [(Process | {pid(), ProcessRef})],
       Process :: (Pid :: pid())
@@ -430,8 +456,9 @@ send(Pid, Label, Request) when is_pid(Pid) ->
 	       | ({via, Module :: module(), ViaName :: via_name()}),
       ProcessRef :: term(),
       LocalName :: local_name(),
-      Label :: term(),
+      Label :: label(),
       Request :: term().
+
 send_list(Processes, Label, Request) ->
     Msg = {Label, Request},
     _ = [do_send_list(Process, Msg) || Process <- Processes],
@@ -448,7 +475,7 @@ send_list(Processes, Label, Request) ->
 	       | ({global, GlobalName :: global_name()})
 	       | ({via, Module :: module(), ViaName :: via_name()}),
       LocalName :: local_name(),
-      Label :: term(),
+      Label :: label(),
       Request :: term(),
       Result :: term().
 
@@ -459,16 +486,17 @@ call(Process, Label, Request) ->
 
 %% @doc Makes a synchronous call to a generic process.
 %%
-%% `Process', the target of the call, can take many forms beyond the pid.
-%% It can be the name of a locally registered process, or if the it is
-%% registered locally on a different node `{LocalName, Node}'. Note that
+%% `Process', the target of the call, can take many forms apart form a pid. It
+%% can be the name of a locally registered process, or if the it is registered
+%% locally on a different node `{LocalName, Node}'. Note that
 %% `{local, LocalName}' can not be used to call a process registered locally as
 %% `LocalName'. If the process is registered globally `Process' is
 %% `{global, GlobalName}'. If registered via an alternative module using
 %% `Module:register_name/2', `Process' is `{via, Module, ViaName}'.
 %%
-%% `Label' is an term used by the generic process to identify that the message
-%% is a call, and possibly a particular type of call.
+%% `Label' is an atom used by the generic process to identify that the message
+%% is a call, and possibly a particular type of call. For example `genie_server'
+%% uses the atom `$gen_call' to identify calls.
 %%
 %% `Request' is a term which communicates the meaning of the request in the call
 %% message.
@@ -500,7 +528,7 @@ call(Process, Label, Request) ->
 	       | ({global, GlobalName :: global_name()})
 	       | ({via, Module :: module(), ViaName :: via_name()}),
       LocalName :: atom(),
-      Label :: term(),
+      Label :: label(),
       Request :: term(),
       Timeout :: timeout(),
       Result :: term().
@@ -559,6 +587,7 @@ call({_LocalName, Node}=Process, Label, Request, Timeout)
 %% @doc Makes simultaneous synchronous calls to a list of generic processes.
 %%
 %% @equiv call_list(Process, Label, Request, 5000)
+
 -spec call_list(Processes, Label, Request) -> Result when
       Processes :: [(Process | {pid(), ProcessRef})],
       Process :: (Pid :: pid())
@@ -568,10 +597,11 @@ call({_LocalName, Node}=Process, Label, Request, Timeout)
 	       | ({via, Module :: module(), ViaName :: via_name()}),
       ProcessRef :: term(),
       LocalName :: local_name(),
-      Label :: term(),
+      Label :: label(),
       Request :: term(),
       Result :: {(Replies :: [{(Process | ProcessRef), term()}]),
 		 (BadProcess :: [(Process | ProcessRef)])}.
+
 call_list(Processes, Label, Request) ->
     call_list(Processes, Label, Request, ?default_timeout).
 
@@ -596,14 +626,16 @@ call_list(Processes, Label, Request) ->
 %% Unlike `call/4' if a process exits before a response is received, or a
 %% process does not exist, `call_list/4' will not exit with the same reason.
 %% Instead results are split into a list of replies, `Replies' and error
-%% reasons, `BadProcesses'. `Replies' is a list of tuple pairs where there first
-%% element is the target process from `Processes', the second element the result
-%% of the call. `BadProcesses' takes the same form except the second element is
-%% the error reason. As noted above if the process took the form
-%% `{Pid, ProcessRef}' then first element of its tuple will be `ProcessRef'.
+%% reasons, `BadProcesses'. `Replies' is a list of tuple pairs where the first
+%% element is the target process from `Processes', the second element is the
+%% result of the call from that process. `BadProcesses' takes the same form
+%% except the second element is the error reason. As noted above if the process
+%% took the form `{Pid, ProcessRef}' then first element of its tuple will be
+%% `ProcessRef'.
 %%
 %% @see call/4
 %% @see reply/2
+
 -spec call_list(Processes, Label, Request, Timeout) -> Result when
       Processes :: [(Process | {pid(), ProcessRef})],
       Process :: (Pid :: pid())
@@ -613,11 +645,12 @@ call_list(Processes, Label, Request) ->
 	       | ({via, Module :: module(), ViaName :: via_name()}),
       ProcessRef :: term(),
       LocalName :: local_name(),
-      Label :: term(),
+      Label :: label(),
       Request :: term(),
       Timeout :: timeout(),
       Result :: {(Replies :: [{(Process | ProcessRef), term()}]),
 		 (BadProcess :: [(Process | ProcessRef)])}.
+
 call_list(Processes, Label, Request, Timeout)
   when is_list(Processes) andalso is_integer(Timeout) andalso Timeout >= 0 ->
     do_call_list(Processes, Label, Request, Timeout);
@@ -626,14 +659,16 @@ call_list(Processes, Label, Request, infinity) when is_list(Processes) ->
 
 %% @doc Sends a reply to a client.
 %%
-%% `From' is from in the call message tuple `{Label, From, Request}'. `From'
+%% `From' is taken from the call message tuple `{Label, From, Request}'. `From'
 %% takes the form `{To, Tag}', where `To' is the pid that sent the call, and the
 %% target of the reply. `Tag' is a unique term used to identify the message.
 %%
-%% It is possible that `To' is a middleman process and so `self()' should be
-%% included in the `Request' if the calling pid is required.
+%% It is possible that `To' is a middleman process (see `call_list/4') and so
+%% `self()' should be included in the `Request' of a `call/4' or `call_list/4'
+%% if the calling pid is required.
 %%
 %% @see call/4
+%% @see call_list/4
 
 -spec reply(From, Reply) -> Reply when
       From :: {To :: pid(), (Tag :: tag() | term())},
@@ -655,7 +690,7 @@ debug_options(Options) ->
 
 %% @doc Get the sys debug structure from genie options.
 %%
-%% The returned list is ready too use with `sys:handle_debug/4'. Note that an
+%% The returned list is ready to use with `sys:handle_debug/4'. Note that an
 %% empty list means no debugging and calls to `sys:handle_debug' can be skipped,
 %% otherwise the term is opaque.
 %%
@@ -666,6 +701,7 @@ debug_options(Options) ->
 %% @see sys:debug_options/1
 %% @see sys:handle_debug/4
 %% @see start/6
+
 -spec debug_options(Name , Options) -> [sys:dbg_opt()] when
       Name :: term(),
       Options :: options().
@@ -686,8 +722,11 @@ debug_options(Name, Options) ->
 %% the process. If the generic process was started using `start/6' with `Name'
 %% as `{local, LocalName}', `ProcName' would be `LocalName';
 %% `{global, GlobalName}', `GlobalName'; `{via, Module, ViaName}', `ViaName'.
+%% The utility function `proc_name/1' can be used to convert `Name' to
+%% `ProcName'.
 %%
 %% @see sys:get_status/2
+%% @see proc_name/1
 
 -spec format_status_header(TagLine, ProcName) -> Result when
       TagLine :: string(),
@@ -715,9 +754,14 @@ format_status_header(TagLine, RegName) ->
 %%
 %% For convenience `Name' can also be a pid. In this case no action occurs, if
 %% `Name' is equal to `Pid' `yes' is returned otherwise `no'.
+%%
+%% @see unregister_name/1
+%% @see whereis_name/1
+
 -spec register_name(Name, Pid) -> yes | no when
       Name :: emgr_name(),
       Pid :: pid().
+
 register_name({local, LocalName}, Pid) ->
     try register(LocalName, Pid) of
 	true ->
@@ -745,8 +789,13 @@ register_name(Pid, Pid2) when is_pid(Pid) andalso is_pid(Pid2) ->
 %%
 %% For convenience `Name' can also be a pid. In this case no action occurs and
 %% `true' is returned.
+%%
+%% @see register_name/2
+%% @see whereis_name/1
+
 -spec unregister_name(Name) -> true when
       Name :: emgr_name() | pid().
+
 unregister_name({local, LocalName}) ->
     _ = (catch unregister(LocalName)),
     true;
@@ -771,8 +820,13 @@ unregister_name(Pid) when is_pid(Pid) ->
 %%
 %% For convenience `Name' can also be a pid. In this case no action occurs and
 %% the pid is returned.
+%%
+%% @see register_name/2
+%% @see unregister_name/1
+
 -spec whereis_name(Name) -> undefined | pid() when
       Name :: emgr_name() | pid().
+
 whereis_name({local, LocalName}) ->
     whereis(LocalName);
 whereis_name({global, GlobalName}) ->
@@ -784,7 +838,8 @@ whereis_name(Pid) when is_pid(Pid) ->
 
 %% @doc Returns a version of the process' name suitable for formatting.
 %%
-%% @equiv proc_name(`Name', [])
+%% @equiv proc_name(Name, [])
+
 -spec proc_name({local, LocalName}) ->
     LocalName when
       LocalName :: local_name();
@@ -798,6 +853,7 @@ whereis_name(Pid) when is_pid(Pid) ->
       (Pid) ->
     Pid when
       Pid :: pid().
+
 proc_name({local, LocalName}) ->
     LocalName;
 proc_name({global, GlobalName}) ->
@@ -818,6 +874,7 @@ proc_name(Pid) when is_pid(Pid) ->
 %% the function will exit with a suitable reason. The verification passes if a
 %% call to `whereis_name(Name)' returns the calling process. This means that if
 %% `Name' is a pid, then that must be the pid of the calling process.
+
 -spec proc_name({local, LocalName}, [verify]) ->
     LocalName when
       LocalName :: local_name();
@@ -831,6 +888,7 @@ proc_name(Pid) when is_pid(Pid) ->
       (Pid, [verify]) ->
     Pid when
       Pid :: pid().
+
 proc_name(Name, Opts) ->
     case lists:member(verify, Opts) of
 	true ->
@@ -843,7 +901,9 @@ proc_name(Name, Opts) ->
 %%
 %% If the process was spawned using `proc_lib' the parent process is returned,
 %% otherwise the function exits.
+
 -spec parent() -> pid().
+
 parent() ->
     case get('$ancestors') of
 	[Parent | _] when is_pid(Parent)->
