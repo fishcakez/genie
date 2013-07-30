@@ -28,11 +28,16 @@
 -export([start/1, crash/1, call/1, cast/1, cast_fast/1,
 	 info/1, abcast/1, multicall/1, multicall_down/1,
 	 call_remote1/1, call_remote2/1, call_remote3/1,
-	 call_remote_n1/1, call_remote_n2/1, call_remote_n3/1, spec_init/1,
+	 call_remote_n1/1, call_remote_n2/1, call_remote_n3/1,
+	 call_list/1,
+	 call_list_remote1/1, call_list_remote2/1, call_list_remote3/1,
+	 call_list_remote_n1/1, call_list_remote_n2/1, call_list_remote_n3/1,
+	 spec_init/1,
 	 spec_init_local_registered_parent/1, 
 	 spec_init_global_registered_parent/1,
 	 otp_5854/1, hibernate/1, otp_7669/1, call_format_status/1,
-	 error_format_status/1, get_state/1, replace_state/1, call_with_huge_message_queue/1
+	 error_format_status/1, get_state/1, replace_state/1, call_with_huge_message_queue/1,
+	 call_list_with_huge_message_queue/1
 	]).
 
 %% async tests
@@ -54,12 +59,15 @@ all() ->
     [start, crash, call, cast, cast_fast, info, abcast,
      multicall, multicall_down, call_remote1, call_remote2,
      call_remote3, call_remote_n1, call_remote_n2,
-     call_remote_n3, spec_init,
+     call_remote_n3, call_list, call_list_remote1,
+     call_list_remote2, call_list_remote3, call_list_remote_n1,
+     call_list_remote_n2, call_list_remote_n3, spec_init,
      spec_init_local_registered_parent,
      spec_init_global_registered_parent, otp_5854, hibernate,
      otp_7669, call_format_status, error_format_status,
      get_state, replace_state,
-     call_with_huge_message_queue, {group, async}].
+     call_with_huge_message_queue, call_list_with_huge_message_queue,
+     {group, async}].
 
 groups() -> 
     [{async, [], [async_start, async_stop, async_exit, async_timer_timeout]}].
@@ -84,7 +92,13 @@ init_per_testcase(Case, Config) when Case == call_remote1;
 				     Case == call_remote3;
 				     Case == call_remote_n1;
 				     Case == call_remote_n2;
-				     Case == call_remote_n3 ->
+				     Case == call_remote_n3;
+				     Case == call_list_remote1;
+				     Case == call_list_remote2;
+				     Case == call_list_remote3;
+				     Case == call_list_remote_n1;
+				     Case == call_list_remote_n2;
+				     Case == call_list_remote_n3 ->
     {ok,N} = start_node(hubba),
     ?line Dog = ?t:timetrap(?default_timeout),
     [{node,N},{watchdog, Dog} | Config];
@@ -732,6 +746,179 @@ multicall_down(Config) when is_list(Config) ->
     ?line [Name] = Bad,
     ok.
 
+call_list(suite) -> [];
+call_list(Config) when is_list(Config) ->
+    OldFl = process_flag(trap_exit, true),
+
+    ?line dummy_via:reset(),
+
+    ?line {ok, _Pid} =
+	genie_server:start_link({local, my_test_name},
+			      genie_server_SUITE, [], []),
+
+    ?line ok = genie_server:call(my_test_name, started_p),
+    ?line {[{my_test_name, delayed}], []} =
+	    genie_server:call_list([my_test_name],
+				   {delayed_answer, 1}),
+
+    %% two requests within a specified time.
+    ?line {[{my_test_name, ok}], []} =
+	genie_server:call_list([my_test_name], {call_within, 1000}),
+    test_server:sleep(500),
+    ?line {[{my_test_name, ok}], []} =
+	genie_server:call_list([my_test_name], next_call),
+    ?line {[{my_test_name, ok}], []} =
+	genie_server:call_list([my_test_name], {call_within, 1000}),
+    test_server:sleep(1500),
+    ?line {[{my_test_name, false}], []} =
+	genie_server:call_list([my_test_name],  next_call),
+    
+    %% timeout call.
+    ?line {[{my_test_name, delayed}], []} =
+	genie_server:call_list([my_test_name], {delayed_answer,1}, 30),
+    ?line {[], [{my_test_name, timeout}]} =
+	(catch genie_server:call_list([my_test_name], {delayed_answer,30}, 1)),
+
+    %% bad return value in the genie_server loop from handle_call.
+    ?line {[],[{my_test_name, {bad_return_value, badreturn}}]} =
+	(catch genie_server:call_list([my_test_name], badreturn)),
+
+    ?line BadPid1 = spawn(fun() -> ok end),
+    ?line BadPid2 = spawn(fun() -> ok end),
+    ?line busy_wait_for_process(BadPid1, 5),
+    ?line busy_wait_for_process(BadPid2, 5),
+
+    ?line {ok, Pid1} = genie_server:start_link(genie_server_SUITE, [], []),
+    ?line {ok, Pid2} = genie_server:start_link(genie_server_SUITE, [], []),
+    ?line {ok, Pid3} = genie_server:start_link({via, dummy_via, my_test_name},
+					       genie_server_SUITE, [], []),
+
+    %% parellel calls.
+    ?line {Replies, Bad} = genie_server:call_list([BadPid1, {BadPid2, bad},
+						   Pid1,
+						   {Pid2, good},
+						   {via, dummy_via,
+						    my_test_name}],
+						  {delayed_answer, 1000},
+						  1500),
+
+    ?line [{good, delayed}, {Pid1, delayed},
+	   {{via, dummy_via, my_test_name}, delayed}] = lists:sort(Replies),
+    ?line [{bad, noproc}, {BadPid1, noproc}] = lists:sort(Bad),
+
+    %% call same pid several times.
+    ?line {[{Pid1, ok}, {Pid1, ok}], [{BadPid1, noproc}, {BadPid1, noproc}]} =
+	(catch genie_server:call_list([Pid1, BadPid1, Pid1, BadPid1],
+				     started_p)),
+
+    %% Stop the servers.
+    ?line {Replies2, []} =
+	   genie_server:call_list([Pid1, Pid2, Pid3], stop),
+    ?line true = (lists:sort([{Pid1, ok}, {Pid2, ok}, {Pid3, ok}]) ==
+		    lists:sort(Replies2)),
+    receive
+	{'EXIT', Pid1, stopped} -> ok
+    after 1000 ->
+	    test_server:fail(call_list_stop)
+    end,
+    receive
+	{'EXIT', Pid2, stopped} -> ok
+    after 1000 ->
+	    test_server:fail(call_list_stop)
+    end,
+    receive
+	{'EXIT', Pid3, stopped} -> ok
+    after 1000 ->
+	    test_server:fail(call_list_stop)
+    end,
+    process_flag(trap_exit, OldFl),
+    ok.
+
+call_list_remote1(suite) -> [];
+call_list_remote1(Config) when is_list(Config) ->
+    N = hubba,
+    ?line Node = proplists:get_value(node,Config),
+    ?line {ok, Pid} = rpc:call(Node, genie_server, start,
+			       [{global, N}, ?MODULE, [], []]),    
+    ?line {[{{global, N}, ok}], []} =
+	(catch genie_server:call_list([{global, N}], started_p, infinity)),
+    ?line exit(Pid, boom),
+    ?line {[], [{{global, N}, Reason}]} =
+	(catch genie_server:call_list([{global, N}], started_p, infinity)),
+    ?line true = (Reason == noproc) orelse (Reason == boom),
+    ok.
+
+call_list_remote2(suite) -> [];
+call_list_remote2(Config) when is_list(Config) ->
+    ?line N = hubba,
+    ?line Node = proplists:get_value(node,Config),
+
+    ?line {ok, Pid} = rpc:call(Node, genie_server, start,
+			       [{global, N}, ?MODULE, [], []]),
+    ?line {[{Pid,ok}], []} =
+	(catch genie_server:call_list([Pid], started_p, infinity)),
+    ?line exit(Pid, boom),
+    ?line {[], [{Pid, Reason}]} =
+	(catch genie_server:call_list([Pid], started_p, infinity)),
+    ?line true = (Reason == noproc) orelse (Reason == boom),
+    ok.
+
+call_list_remote3(suite) -> [];
+call_list_remote3(Config) when is_list(Config) ->
+    ?line Node = proplists:get_value(node,Config),
+
+    ?line {ok, Pid} = rpc:call(Node, genie_server, start,
+			       [{local, piller}, ?MODULE, [], []]),
+    ?line {[{{piller, Node}, ok}], []} =
+	(catch genie_server:call_list([{piller, Node}], started_p, infinity)),
+    ?line exit(Pid, boom),
+    ?line {[], [{{piller, Node}, Reason}]} =
+	(catch genie_server:call_list([{piller, Node}], started_p, infinity)),
+    ?line true = (Reason == noproc) orelse (Reason == boom),
+    ok.
+
+%% --------------------------------------
+%% Test call to nonexisting node
+%% --------------------------------------
+
+call_list_remote_n1(suite) -> [];
+call_list_remote_n1(Config) when is_list(Config) ->
+    ?line N = hubba,
+    ?line Node = proplists:get_value(node,Config),    
+    ?line {ok, _Pid} = rpc:call(Node, genie_server, start,
+			       [{global, N}, ?MODULE, [], []]),
+    ?line _ = test_server:stop_node(Node),
+    ?line {[], [{{global, N}, noproc}]} =
+	(catch genie_server:call_list([{global, N}], started_p, infinity)),
+
+    ok.
+
+call_list_remote_n2(suite) -> [];
+call_list_remote_n2(Config) when is_list(Config) ->
+    ?line N = hubba,
+    ?line Node = proplists:get_value(node,Config),
+
+    ?line {ok, Pid} = rpc:call(Node, genie_server, start,
+			       [{global, N}, ?MODULE, [], []]),
+    ?line _ = test_server:stop_node(Node),
+    ?line {[], [{Pid, {nodedown, Node}}]} =
+	(catch genie_server:call_list([Pid], started_p, infinity)),
+
+    ok.
+
+call_list_remote_n3(suite) -> [];
+call_list_remote_n3(Config) when is_list(Config) ->
+    ?line Node = proplists:get_value(node,Config),
+
+    ?line {ok, _Pid} = rpc:call(Node, genie_server, start,
+			       [{local, piller}, ?MODULE, [], []]),
+    ?line _ = test_server:stop_node(Node),
+    ?line {[], [{{piller, Node}, {nodedown, Node}}]} =
+	(catch genie_server:call_list([{piller, Node}], started_p, infinity)),
+
+    ok.
+
+
 busy_wait_for_process(Pid,N) ->
     case erlang:is_process_alive(Pid) of
 	true ->
@@ -1121,6 +1308,28 @@ do_call_with_huge_message_queue() ->
     end,
     ok.
 
+%% Same as previous test but for call_list/2,3.
+call_list_with_huge_message_queue(Config) when is_list(Config) ->
+    ?line Pid = spawn_link(fun echo_loop/0),
+
+    ?line {Time,ok} = tc(fun() -> call_lists(10000, Pid) end),
+
+    ?line [self() ! {msg,N} || N <- lists:seq(1, 500000)],
+    erlang:garbage_collect(),
+    ?line {NewTime,ok} = tc(fun() -> call_lists(10000, Pid) end),
+    io:format("Time for empty message queue: ~p", [Time]),
+    io:format("Time for huge message queue: ~p", [NewTime]),
+
+    IsCover = test_server:is_cover(),
+    case (NewTime+1) / (Time+1) of
+	Q when Q < 10; IsCover ->
+	    ok;
+	Q ->
+	    io:format("Q = ~p", [Q]),
+	    ?line ?t:fail()
+    end,
+    ok.
+
 calls(0, _) -> ok;
 calls(N, Pid) ->
     {ultimate_answer,42} = call(Pid, {ultimate_answer,42}),
@@ -1128,6 +1337,15 @@ calls(N, Pid) ->
 
 call(Pid, Msg) ->
     genie_server:call(Pid, Msg, infinity).
+
+call_lists(0, _) -> ok;
+call_lists(N, Pid) ->
+    {[{Pid, {ultimate_answer,42}}], []} = call_list([Pid],
+						    {ultimate_answer,42}),
+    call_lists(N-1, Pid).
+
+call_list(Pids, Msg) ->
+    genie_server:call_list(Pids, Msg, infinity).
 
 tc(Fun) ->
     timer:tc(erlang, apply, [Fun,[]]).

@@ -92,6 +92,7 @@
 	 cast/2, reply/2,
 	 abcast/2, abcast/3,
 	 multi_call/2, multi_call/3, multi_call/4,
+	 call_list/2, call_list/3,
 	 enter_loop/3, enter_loop/4, enter_loop/5, wake_hib/5]).
 
 %% System exports
@@ -216,6 +217,21 @@ do_abcast([Node|Nodes], Name, Msg) when is_atom(Node) ->
 do_abcast([], _,_) -> abcast.
 
 cast_msg(Request) -> {'$gen_cast',Request}.
+
+%%% -----------------------------------------------------------------
+%%% Make a call to a list of servers.
+%%% Returns: {[Replies],[BadProcesses]}
+%%% A Timeout can be given
+%%% 
+%%% Unlike multi_call/2,3,4 the list of bad servers includes the
+%%% error reason that the equivalent call/2,3 would have exited with.
+%%% -----------------------------------------------------------------
+call_list(Names, Req) ->
+    genie:call_list(Names, '$gen_call', Req).
+
+call_list(Names, Req, Timeout) ->
+    genie:call_list(Names, '$gen_call', Req, Timeout).
+
 %%% -----------------------------------------------------------------
 %%% Make a call to servers at several nodes.
 %%% Returns: {[Replies],[BadNodes]}

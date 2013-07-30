@@ -75,7 +75,9 @@
 %% API
 -export([start/5, start/6, init_ack/2,
 	 cast/3, send/3,
-	 call/3, call/4, reply/2,
+	 call/3, call/4,
+	 call_list/3, call_list/4,
+	 reply/2,
 	 starter_mode/1, starter_process/1,
 	 debug_options/1, debug_options/2,
 	 format_status_header/2,
@@ -486,11 +488,82 @@ call({_LocalName, Node}=Process, Label, Request, Timeout)
  	    do_call(Process, Label, Request, Timeout)
     end.
 
+%% @doc Makes simultaneous synchronous calls to a list of generic processes.
+%%
+%% @equiv call_list(Process, Label, Request, 5000)
+-spec call_list(Processes, Label, Request) -> Result when
+      Processes :: [(Process | {pid(), ProcessRef})],
+      Process :: (Pid :: pid())
+	       | LocalName
+	       | ({LocalName, Node :: node()})
+	       | ({global, GlobalName :: global_name()})
+	       | ({via, Module :: module(), ViaName :: via_name()}),
+      ProcessRef :: term(),
+      LocalName :: local_name(),
+      Label :: term(),
+      Request :: term(),
+      Result :: {(Replies :: [{(Process | ProcessRef), term()}]),
+		 (BadProcess :: [(Process | ProcessRef)])}.
+call_list(Processes, Label, Request) ->
+    call_list(Processes, Label, Request, ?default_timeout).
+
+%% @doc Makes simultaneous synchronous calls to a list of generic processes.
+%%
+%% This function efficiently carries out a call for each process in `Processes'.
+%% It is equivalent to making parallel `call/4' calls and collecting the
+%% results, except more efficient. A middleman process is used to make the
+%% calls, which means that the process in call message will belong to the
+%% middleman rather than the calling process.
+%%
+%% `Processes' is a list of targets for the call. The elements of `Processes'
+%% take the same form as the `Process' argument for `call/4' with an additional
+%% type: `{Pid, ProcessRef}'. This special case will make a call to `Pid' but
+%% associate the result of the call with `ProcessRef'.
+%%
+%% `Label' and `Request' are identical to their arguments in `call/4'.
+%%
+%% `Timeout' is the time a calling process will wait before assigning a
+%% bad result with reason `timeout' to each unanswered call.
+%%
+%% Unlike `call/4' if a process exits before a response is received, or a
+%% process does not exist, `call_list/4' will not exit with the same reason.
+%% Instead results are split into a list of replies, `Replies' and error
+%% reasons, `BadProcesses'. `Replies' is a list of tuple pairs where there first
+%% element is the target process from `Processes', the second element the result
+%% of the call. `BadProcesses' takes the same form except the second element is
+%% the error reason. As noted above if the process took the form
+%% `{Pid, ProcessRef}' then first element of its tuple will be `ProcessRef'.
+%%
+%% @see call/4
+%% @see reply/2
+-spec call_list(Processes, Label, Request, Timeout) -> Result when
+      Processes :: [(Process | {pid(), ProcessRef})],
+      Process :: (Pid :: pid())
+	       | LocalName
+	       | ({LocalName, Node :: node()})
+	       | ({global, GlobalName :: global_name()})
+	       | ({via, Module :: module(), ViaName :: via_name()}),
+      ProcessRef :: term(),
+      LocalName :: local_name(),
+      Label :: term(),
+      Request :: term(),
+      Timeout :: timeout(),
+      Result :: {(Replies :: [{(Process | ProcessRef), term()}]),
+		 (BadProcess :: [(Process | ProcessRef)])}.
+call_list(Processes, Label, Request, Timeout)
+  when is_list(Processes) andalso is_integer(Timeout) andalso Timeout >= 0 ->
+    do_call_list(Processes, Label, Request, Timeout);
+call_list(Processes, Label, Request, infinity) when is_list(Processes) ->
+    do_call_list(Processes, Label, Request, infinity).
+
 %% @doc Sends a reply to a client.
 %%
 %% `From' is from in the call message tuple `{Label, From, Request}'. `From'
 %% takes the form `{To, Tag}', where `To' is the pid that sent the call, and the
 %% target of the reply. `Tag' is a unique term used to identify the message.
+%%
+%% It is possible that `To' is a middleman process and so `self()' should be
+%% included in the `Request' if the calling pid is required.
 %%
 %% @see call/4
 
@@ -908,6 +981,209 @@ wait_resp(Node, Tag, Timeout) ->
 	    monitor_node(Node, false),
 	    exit(timeout)
     end.
+
+do_call_list(Processes, Label, Request, Timeout) ->
+    Tag = make_ref(),
+    Caller = self(),
+    Receiver = spawn(
+		 fun() ->
+			 %% Middleman process. Should be unsensitive to regular
+			 %% exit signals. The sychronization is needed in case
+			 %% the receiver would exit before the caller started
+			 %% the monitor.
+			 process_flag(trap_exit, true),
+			 Ref = erlang:monitor(process, Caller),
+			 receive
+			     {Caller, Tag} ->
+				 {Monitors, Bad} = send_processes(Processes,
+								  Label, Request),
+				 TRef = start_timer(Timeout),
+				 Result = rec_processes(Monitors, Bad, TRef),
+				 exit({self(), Tag, Result});
+			     {'DOWN', Ref, _, _, _} ->
+				 %% Caller died before sending us the go-ahead.
+				 %% Give up silently.
+
+				 exit(normal)
+			 end
+		 end),
+    Ref = erlang:monitor(process, Receiver),
+    Receiver ! {self(), Tag},
+    receive
+	{'DOWN', Ref, _, _, {Receiver, Tag, Result}} ->
+	    Result;
+	{'DOWN', Ref, _, _, Reason} ->
+	    %% The middleman code failed. Or someone did
+	    %% exit(_, kill) on the middleman process => Reason==killed
+	    exit(Reason)
+    end.
+
+send_processes(Processes, Label, Request) ->
+    send_processes(Processes, Label, Request, [], []).
+
+send_processes([Pid | Processes], Label, Request, Monitors, Bad)
+  when is_pid(Pid) ->
+    Ref = monitor_and_send(Pid, Label, Request),
+    send_processes(Processes, Label, Request, [{Pid, Ref, Pid} | Monitors],
+		   Bad);
+send_processes([{Pid, ProcessRef} | Processes], Label, Request, Monitors, Bad)
+  when is_pid(Pid) ->
+    Ref = monitor_and_send(Pid, Label, Request),
+    send_processes(Processes, Label, Request,
+		   [{ProcessRef, Ref, Pid} | Monitors], Bad);
+send_processes([{global, GlobalName} = Process | Processes], Label, Request,
+	       Monitors, Bad) ->
+    case global:whereis_name(GlobalName) of
+	Pid when is_pid(Pid) ->
+	    Ref = monitor_and_send(Pid, Label, Request),
+	    send_processes(Processes, Label, Request,
+			   [{Process, Ref, Pid} | Monitors], Bad);
+	undefined ->
+	    send_processes(Processes, Label, Request, Monitors,
+			   [{Process, noproc} | Bad])
+    end;
+send_processes([{via, Module, ViaName} = Process | Processes], Label, Request,
+	       Monitors, Bad) ->
+    case Module:whereis_name(ViaName) of
+	Pid when is_pid(Pid) ->
+	    Ref = monitor_and_send(Pid, Label, Request),
+	    send_processes(Processes, Label, Request,
+			   [{Process, Ref, Pid} | Monitors], Bad);
+	undefined ->
+	    send_processes(Processes, Label, Request, Monitors,
+			   [{Process, noproc} | Bad])
+    end;
+send_processes([LocalName | Processes], Label, Request, Monitors, Bad)
+  when is_atom(LocalName) ->
+    case erlang:whereis(LocalName) of
+	Pid when is_pid(Pid) ->
+	    Ref = monitor_and_send(Pid, Label, Request),
+	    send_processes(Processes, Label, Request,
+			   [{LocalName, Ref, Pid} | Monitors], Bad);
+	undefined ->
+	    send_processes(Processes, Label, Request, Monitors,
+			   [{LocalName, noproc} | Bad])
+    end;
+send_processes([{LocalName, Node} | Processes], Label, Request,
+	       Monitors, Bad) when is_atom(LocalName) andalso Node =:= node() ->
+   send_processes([LocalName | Processes], Label, Request, Monitors, Bad);
+send_processes([{LocalName, Node} = Process | Processes], Label, Request,
+	       Monitors, Bad) when is_atom(LocalName) andalso is_atom(Node) ->
+    Ref = monitor_and_send(Process, Label, Request),
+    send_processes(Processes, Label, Request,
+		   [{Process, Ref, Process} | Monitors], Bad);
+%% Ignore invalid - same behaviour as multi_call/5.
+send_processes([_Invalid | Processes], Label, Request, Monitors, Bad) ->
+    send_processes(Processes, Label, Request, Monitors, Bad);
+send_processes([], _Label, _Request, Monitors, Bad) ->
+    {Monitors, Bad}.
+
+rec_processes(Monitors, Bad, TRef) ->
+    rec_processes(Monitors, Bad, [], TRef).
+
+rec_processes([{Process, Ref, Pid} | Monitors], Bad, Replies, TRef)
+  when is_reference(Ref) ->
+    receive
+	{'DOWN', Ref, _, _, noconnection} ->
+	    Reason = rec_noconnection(Process, Pid),
+	    rec_processes(Monitors, [{Process, Reason} | Bad],
+			  Replies, TRef);
+	{'DOWN', Ref, _, _, Reason} ->
+	    rec_processes(Monitors, [{Process, Reason} | Bad], Replies, TRef);
+	{Ref, Reply} ->
+	    erlang:demonitor(Ref, [flush]),
+	    rec_processes(Monitors, Bad, [{Process, Reply} | Replies], TRef);
+	{timeout, TRef, _} ->
+	    erlang:demonitor(Ref, [flush]),
+	    rec_processes_rest(Monitors, [{Process, timeout} | Bad], Replies)
+    end;
+rec_processes([{Process, {Node, Ref}, Pid} | Monitors], Bad, Replies, TRef) ->
+    receive
+	{nodedown, Node} ->
+	    Reason = rec_noconnection(Process, Pid),
+	    rec_processes(Monitors, [{Process, Reason} | Bad],
+			  Replies, TRef);
+	{Ref, Reply} ->
+	    monitor_node(Node, false),
+	    rec_processes(Monitors, Bad, [{Process, Reply} | Replies], TRef);
+	{timeout, TRef, _} ->
+	    monitor_node(Node, false),
+	    rec_processes_rest(Monitors, [{Process, timeout} | Bad], Replies)
+    end;
+rec_processes([], Bad, Replies, TRef) when is_reference(TRef) ->
+    case erlang:cancel_timer(TRef) of
+	false ->
+	    receive {timeout, TRef, _} -> ok after 0 -> ok end;
+	_ ->
+	    ok
+    end,
+    {Replies, Bad};
+rec_processes([], Bad, Replies, undefined) ->
+    {Replies, Bad}.
+
+rec_processes_rest([{Process, Ref, Pid} | Monitors], Bad, Replies)
+  when is_reference(Ref) ->
+    receive
+	{'DOWN', Ref, _, _, noconnection} ->
+	    Reason = rec_noconnection(Process, Pid),
+	    rec_processes_rest(Monitors, [{Process, Reason} | Bad],
+			       Replies);
+	{'DOWN', Ref, _, _, Reason} ->
+	    rec_processes_rest(Monitors, [{Process, Reason} | Bad], Replies);
+	{Ref, Reply} ->
+	    erlang:demonitor(Ref, [flush]),
+	    rec_processes_rest(Monitors, Bad, [{Process, Reply} | Replies])
+    after
+	0 ->
+	    erlang:demonitor(Ref, [flush]),
+	    rec_processes_rest(Monitors, [{Process, timeout} | Bad], Replies)
+    end;
+rec_processes_rest([{Process, {Node, Ref}, Pid} | Monitors], Bad, Replies) ->
+    receive
+	{nodedown, Node} ->
+	    Reason = rec_noconnection(Process, Pid),
+	    rec_processes_rest(Monitors, [{Process, Reason} | Bad],
+			       Replies);
+	{Ref, Reply} ->
+	    monitor_node(Node, false),
+	    rec_processes_rest(Monitors, Bad, [{Process, Reply} | Replies])
+    after
+	0 ->
+	    monitor_node(Node, false),
+	    rec_processes_rest(Monitors, [{Process, timeout} | Bad], Replies)
+    end;
+rec_processes_rest([], Bad, Replies) ->
+    {Replies, Bad}.
+
+%% `nodedown' not yet detected by global (or via module) `noproc' is reason is
+%% used instead to copy call/4 behaviour.
+rec_noconnection({global, _GlobalName}, _Pid) ->
+    noproc;
+rec_noconnection({via, _Module, _ViaName}, _Pid) ->
+    noproc;
+rec_noconnection(_Process, Pid) ->
+    {nodedown, get_node(Pid)}.
+
+monitor_and_send(Process, Label, Request) ->
+    try erlang:monitor(process, Process) of
+	Ref ->
+	    catch erlang:send(Process, {Label, {self(), Ref}, Request},
+			      [noconnect]),
+	    Ref
+    catch
+	error:_ ->
+	    Node = get_node(Process),
+	    monitor_node(Node, true),
+	    Ref = make_ref(),
+	    catch erlang:send(Process, {Label, {self(), Ref}, Request},
+			      [noconnect]),
+	    {Node, Ref}
+    end.
+
+start_timer(infinity) ->
+    undefined;
+start_timer(Timeout) ->
+    erlang:start_timer(Timeout, self(), ok).
 
 %%%-----------------------------------------------------------------
 %%%  Misc. functions.
