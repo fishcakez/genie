@@ -2,6 +2,7 @@
 %% %CopyrightBegin%
 %%
 %% Copyright Ericsson AB 1996-2013. All Rights Reserved.
+%% Copyright 2013, James Fish <james@fishcakez.com>
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -16,74 +17,21 @@
 %%
 %% %CopyrightEnd%
 %%
--module(genie_server).
 
-%%% ---------------------------------------------------
-%%%
-%%% The idea behind THIS server is that the user module
-%%% provides (different) functions to handle different
-%%% kind of inputs. 
-%%% If the Parent process terminates the Module:terminate/2
-%%% function is called.
-%%%
-%%% The user module should export:
-%%%
-%%%   init(Args)  
-%%%     ==> {ok, State}
-%%%         {ok, State, Timeout}
-%%%         ignore
-%%%         {stop, Reason}
-%%%
-%%%   handle_call(Msg, {From, Tag}, State)
-%%%
-%%%    ==> {reply, Reply, State}
-%%%        {reply, Reply, State, Timeout}
-%%%        {noreply, State}
-%%%        {noreply, State, Timeout}
-%%%        {stop, Reason, Reply, State}  
-%%%              Reason = normal | shutdown | Term terminate(State) is called
-%%%
-%%%   handle_cast(Msg, State)
-%%%
-%%%    ==> {noreply, State}
-%%%        {noreply, State, Timeout}
-%%%        {stop, Reason, State} 
-%%%              Reason = normal | shutdown | Term terminate(State) is called
-%%%
-%%%   handle_info(Info, State) Info is e.g. {'EXIT', P, R}, {nodedown, N}, ...
-%%%
-%%%    ==> {noreply, State}
-%%%        {noreply, State, Timeout}
-%%%        {stop, Reason, State} 
-%%%              Reason = normal | shutdown | Term, terminate(State) is called
-%%%
-%%%   terminate(Reason, State) Let the user module clean up
-%%%        always called when server terminates
-%%%
-%%%    ==> ok
-%%%
-%%%
-%%% The work flow (of the server) can be described as follows:
-%%%
-%%%   User module                          Generic
-%%%   -----------                          -------
-%%%     start            ----->             start
-%%%     init             <-----              .
-%%%
-%%%                                         loop
-%%%     handle_call      <-----              .
-%%%                      ----->             reply
-%%%
-%%%     handle_cast      <-----              .
-%%%
-%%%     handle_info      <-----              .
-%%%
-%%%     terminate        <-----              .
-%%%
-%%%                      ----->             reply
-%%%
-%%%
-%%% ---------------------------------------------------
+%% @doc `genie_server' is a drop in replacement for `gen_server'. A few features
+%% have been added but nothing has been taken away.
+%%
+%% The `genie_server' behaviour has exactly the same callbacks as `gen_server',
+%% except that `init/1' has two extra return values. `Mod:init/1' can also
+%% return `{info, State, Info}' or `{info, State, Info, Timeout}'. This will
+%% cause `start_link/3,4' (or `start/3,4') to return `{ok, Pid, Info}' and the
+%% server will continue as if `{ok, State}' or `{ok, State, Timeout}' had been
+%% returned. `Info' can be any term. If `start_link/3,4' is called using
+%% `supervisor:start_child/2' and `supervisor:restart_child/2' then
+%% `{ok, Pid, Info}' will be returned instead of `{ok, Pid}'.
+%%
+%% @end
+-module(genie_server).
 
 %% API
 -export([start/3, start/4,
@@ -154,15 +102,44 @@
 %%%          {error, {already_started, Pid}} |
 %%%          {error, Reason}
 %%% -----------------------------------------------------------------
+
+%% @doc Starts a generic server.
+%%
+%% @see start_link/4
+%% @see gen_server:start/3
 start(Mod, Args, Options) ->
     genie:start(?MODULE, nolink, Mod, Args, Options).
 
+%% @doc Starts a generic server.
+%%
+%% @see start_link/4
+%% @see gen_server:start/4
 start(Name, Mod, Args, Options) ->
     genie:start(?MODULE, nolink, Name, Mod, Args, Options).
 
+%% @doc Starts a generic server.
+%%
+%% @see start_link/4
+%% @see gen_server:start_link/3
 start_link(Mod, Args, Options) ->
     genie:start(?MODULE, link, Mod, Args, Options).
 
+%% @doc Starts a generic server.
+%%
+%% The `Options' argument can take a new option, `{async, AsyncTimeout}'. If
+%% `AsyncTimeout' is false the process is spawned synchronously - the same as
+%% always occurs with `gen_server'. If `AsyncTimeout' is a `timeout()' value,
+%% then the `start_link/3,4' or `start/3,4' function will return immediately,
+%% before `Mod:init/1' is called. This means that if `Mod:init/1' returns
+%% `{info, State, Info}' or `{info, State, Info, Timeout}' the information
+%% will be ignored and `{ok, Pid}' returned. In the case of `start_link/4' and
+%% `start/4' the spawned process will be registered before the function returns.
+%% If this fails the usual `already_started' error will be returned. If
+%% `Mod:init/1' does not return with the timeout, `AsyncTimeout', the spawned
+%% server will be killed.
+%%
+%% @see genie:start/6
+%% @see gen_server:start_link/4
 start_link(Name, Mod, Args, Options) ->
     genie:start(?MODULE, link, Name, Mod, Args, Options).
 
@@ -174,6 +151,10 @@ start_link(Name, Mod, Args, Options) ->
 %% If the client is trapping exits and is linked server termination
 %% is handled here (? Shall we do that here (or rely on timeouts) ?).
 %% ----------------------------------------------------------------- 
+
+%% @doc Make a call to a generic server.
+%%
+%% @see gen_server:call/2
 call(Name, Request) ->
     case catch genie:call(Name, '$gen_call', Request) of
 	{ok,Res} ->
@@ -182,6 +163,9 @@ call(Name, Request) ->
 	    exit({Reason, {?MODULE, call, [Name, Request]}})
     end.
 
+%% @doc Make a call to a generic server.
+%%
+%% @see gen_server:call/3
 call(Name, Request, Timeout) ->
     case catch genie:call(Name, '$gen_call', Request, Timeout) of
 	{ok,Res} ->
@@ -193,27 +177,46 @@ call(Name, Request, Timeout) ->
 %% -----------------------------------------------------------------
 %% Make a cast to a generic server.
 %% -----------------------------------------------------------------
+
+%% @doc Make a cast to a generic server.
+%%
+%% @see gen_server:cast/2
 cast(Process, Request) ->
     genie:cast(Process, '$gen_cast', Request).
 
 %% -----------------------------------------------------------------
 %% Make a cast to a list of generic servers.
 %% -----------------------------------------------------------------
+
+%% @doc Make casts to a list of generic servers.
+%%
+%% @see genie:cast_list/3
 cast_list(Processes, Request) ->
     genie:cast_list(Processes, '$gen_cast', Request).
 
 %% -----------------------------------------------------------------
 %% Send a reply to the client.
 %% -----------------------------------------------------------------
+
+%% @doc Send a reply to call.
+%%
+%% @see gen_server:reply/2
 reply({To, Tag}, Reply) ->
     catch To ! {Tag, Reply}.
 
 %% ----------------------------------------------------------------- 
 %% Asyncronous broadcast, returns nothing, it's just send'n prey
 %%-----------------------------------------------------------------  
+
+%% @doc Make a asynchronous broadcast to generic servers.
+%%
+%% @see abcast/2
 abcast(Name, Request) when is_atom(Name) ->
     do_abcast([node() | nodes()], Name, cast_msg(Request)).
 
+%% @doc Make a asynchronous broadcast to generic servers.
+%%
+%% @see abcast/3
 abcast(Nodes, Name, Request) when is_list(Nodes), is_atom(Name) ->
     do_abcast(Nodes, Name, cast_msg(Request)).
 
@@ -232,9 +235,17 @@ cast_msg(Request) -> {'$gen_cast',Request}.
 %%% Unlike multi_call/2,3,4 the list of bad servers includes the
 %%% error reason that the equivalent call/2,3 would have exited with.
 %%% -----------------------------------------------------------------
+
+%% @doc Make parellel synchronous calls to a list of generic servers.
+%%
+%% @see call_list/3
 call_list(Names, Req) ->
     genie:call_list(Names, '$gen_call', Req).
 
+%% @doc Make parellel synchronous calls to a list of generic servers.
+%%
+%% @see call/3
+%% @see genie:call_list/4
 call_list(Names, Req, Timeout) ->
     genie:call_list(Names, '$gen_call', Req, Timeout).
 
@@ -248,14 +259,24 @@ call_list(Names, Req, Timeout) ->
 %%% queue, it would probably become confused. Late answers will 
 %%% now arrive to the terminated middleman and so be discarded.
 %%% -----------------------------------------------------------------
+
+%% @doc Make a call to generic servers at several nodes.
+%%
+%% @see gen_server:multi_call/2
 multi_call(Name, Req)
   when is_atom(Name) ->
     do_multi_call([node() | nodes()], Name, Req, infinity).
 
+%% @doc Make a call to generic servers at several nodes.
+%%
+%% @see gen_server:multi_call/3
 multi_call(Nodes, Name, Req) 
   when is_list(Nodes), is_atom(Name) ->
     do_multi_call(Nodes, Name, Req, infinity).
 
+%% @doc Make a call to generic servers at several nodes.
+%%
+%% @see gen_server:multi_call/4
 multi_call(Nodes, Name, Req, infinity) ->
     do_multi_call(Nodes, Name, Req, infinity);
 multi_call(Nodes, Name, Req, Timeout) 
@@ -274,9 +295,16 @@ multi_call(Nodes, Name, Req, Timeout)
 %%              The user is responsible for any initialization of the 
 %%              process, including registering a name for it.
 %%-----------------------------------------------------------------
+
+%% @doc Enter a generic server loop.
+%%
+%% @see gen_server:enter_loop/3
 enter_loop(Mod, Options, State) ->
     enter_loop(Mod, Options, State, self(), infinity).
 
+%% @doc Enter a generic server loop.
+%%
+%% @see gen_server:enter_loop/4
 enter_loop(Mod, Options, State, ServerName = {Scope, _})
   when Scope == local; Scope == global ->
     enter_loop(Mod, Options, State, ServerName, infinity);
@@ -287,6 +315,9 @@ enter_loop(Mod, Options, State, ServerName = {via, _, _}) ->
 enter_loop(Mod, Options, State, Timeout) ->
     enter_loop(Mod, Options, State, self(), Timeout).
 
+%% @doc Enter a generic server loop.
+%%
+%% @see gen_server:enter_loop/5
 enter_loop(Mod, Options, State, ServerName, Timeout) ->
     Name = genie:proc_name(ServerName, [verify]),
     Parent = genie:parent(),
@@ -304,6 +335,8 @@ enter_loop(Mod, Options, State, ServerName, Timeout) ->
 %%% Finally an acknowledge is sent to Parent and the main
 %%% loop is entered.
 %%% ---------------------------------------------------
+
+%% @private
 init_it(Starter, self, Name, Mod, Args, Options) ->
     init_it(Starter, self(), Name, Mod, Args, Options);
 init_it(Starter, Parent, Name0, Mod, Args, Options) ->
@@ -367,6 +400,8 @@ loop(Parent, Name, State, Mod, Time, Debug) ->
 		  timeout
 	  end,
     decode_msg(Msg, Parent, Name, State, Mod, Time, Debug, false).
+
+%% @private
 
 wake_hib(Parent, Name, State, Mod, Debug) ->
     Msg = receive
@@ -678,13 +713,20 @@ reply(Name, {To, Tag}, Reply, State, Debug) ->
 %%-----------------------------------------------------------------
 %% Callback functions for system messages handling.
 %%-----------------------------------------------------------------
+
+%% @private
+
 system_continue(Parent, Debug, [Name, State, Mod, Time]) ->
     loop(Parent, Name, State, Mod, Time, Debug).
+
+%% @private
 
 -spec system_terminate(_, _, _, [_]) -> no_return().
 
 system_terminate(Reason, _Parent, Debug, [Name, State, Mod, _Time]) ->
     terminate(Reason, Name, [], Mod, State, Debug).
+
+%% @private
 
 system_code_change([Name, State, Mod, Time], _Module, OldVsn, Extra) ->
     case catch Mod:code_change(OldVsn, State, Extra) of
@@ -784,6 +826,7 @@ async_error_info(Reason, Starter, Name, Args, Debug) ->
 	    ok
     end.
 
+%% @private
 async_timeout_info(Name, _Mod, Args, Debug) ->
     format("** Generic server ~p timed out \n"
 	   "** When in asynchronous init ~n"
@@ -811,6 +854,8 @@ reason(Reason) ->
 %%-----------------------------------------------------------------
 %% Status information
 %%-----------------------------------------------------------------
+
+%% @private
 format_status(Opt, StatusData) ->
     [PDict, SysState, Parent, Debug, [Name, State, Mod, _Time]] = StatusData,
     Header = genie:format_status_header("Status for generic server",
