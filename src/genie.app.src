@@ -1,9 +1,15 @@
 {application, genie,
   [
-    {description, "Gen replacement library"},
-    {vsn, "0.1.0"},
+    {description, "Gen drop-in replacement library"},
+    {vsn, "1.0.0"},
     {applications, [
                     kernel,
                     stdlib
-                   ]}
+                   ]},
+    {modules, [
+               genie,
+               genie_fsm,
+               genie_server
+              ]},
+    {env, []}
  ]}.
