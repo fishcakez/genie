@@ -2,6 +2,7 @@
 %% %CopyrightBegin%
 %%
 %% Copyright Ericsson AB 1996-2013. All Rights Reserved.
+%% Copyright 2013, James Fish <james@fishcakez.com>
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -16,6 +17,23 @@
 %%
 %% %CopyrightEnd%
 %%
+
+%% @doc `genie_fsm' is a drop in replacement for `gen_fsm'. A few features have
+%% been added but nothing has been taken away.
+%%
+%% The `genie_fsm' behaviour has exactly the same callbacks as `gen_fsm',
+%% except that `init/1' has two extra return values. `Mod:init/1' can also
+%% return `{info, StateName, StateData Info}' or
+%% `{info, StateName, StateData, Info, Timeout}'. This will cause
+%% `start_link/3,4' (or `start/3,4') to return `{ok, Pid, Info}' and the state
+%% machine will continue as if `{ok, StateName, StateData}' or
+%% `{ok, StateName, StateData, Timeout}' had been returned. `Info' can be any
+%% term. If `start_link/3,4' is called using `supervisor:start_child/2' or
+%% `supervisor:restart_child/2' then `{ok, Pid, Info}' will be returned instead
+%% of `{ok, Pid}'.
+%%
+%% @end
+
 -module(genie_fsm).
 
 %%%-----------------------------------------------------------------
@@ -176,25 +194,63 @@
 %%%          {error, {already_started, Pid}} |
 %%%          {error, Reason}
 %%% ---------------------------------------------------
+
+%% @doc Starts a generic state machine.
+%%
+%% @see start_link/4
+%% @see gen_fsm:start/3
 start(Mod, Args, Options) ->
     genie:start(?MODULE, nolink, Mod, Args, Options).
 
+%% @doc Starts a generic state machine.
+%%
+%% @see start_link/4
+%% @see gen_fsm:start/4
 start(Name, Mod, Args, Options) ->
     genie:start(?MODULE, nolink, Name, Mod, Args, Options).
 
+%% @doc Starts a generic state machine.
+%%
+%% @see start_link/4
+%% @see gen_fsm:start_link/3
 start_link(Mod, Args, Options) ->
     genie:start(?MODULE, link, Mod, Args, Options).
 
+%% @doc Starts a generic state machine.
+%%
+%% The `Options' argument can take a new option, `{async, AsyncTimeout}'. If
+%% `AsyncTimeout' is false the process is spawned synchronously - the same as
+%% always occurs with `gen_fsm'. If `AsyncTimeout' is a `timeout()' value, then
+%% the `start_link/3,4' or `start/3,4' function will return immediately, before
+%% `Mod:init/1' is called. This means that if `Mod:init/1' returns
+%% `{info, StateName, StateData, Info}' or
+%% `{info, StateName, StateData, Info, Timeout}' the information will be ignored
+%% and `{ok, Pid}' returned. In the case of `start_link/4' and `start/4' the
+%% spawned process will be registered before the function returns. If this fails
+%% the usual `already_started' error will be returned. If `Mod:init/1' does not
+%% return with the timeout, `AsyncTimeout', the spawned state machine will be
+%% killed.
+%%
+%% @see genie:start/6
+%% @see gen_fsm:start_link/4
 start_link(Name, Mod, Args, Options) ->
     genie:start(?MODULE, link, Name, Mod, Args, Options).
 
-
+%% @doc Send an event to a state machine.
+%%
+%% @see gen_fsm:send_event/2
 send_event(Name, Event) ->
     genie:send(Name, '$gen_event', Event).
 
+%% @doc Sends an event to a list state machines.
+%%
+%% @see gen_fsm:send_event/2
 send_list_event(Names, Event) ->
     genie:send_list(Names, '$gen_event', Event).
 
+%% @doc Send a synchronous event to a state machine.
+%%
+%% @see gen_fsm:sync_send_event/2
 sync_send_event(Name, Event) ->
     case catch genie:call(Name, '$gen_sync_event', Event) of
 	{ok,Res} ->
@@ -203,6 +259,9 @@ sync_send_event(Name, Event) ->
 	    exit({Reason, {?MODULE, sync_send_event, [Name, Event]}})
     end.
 
+%% @doc Send a synchronous event to a state machine.
+%%
+%% @see gen_fsm:sync_send_event/3
 sync_send_event(Name, Event, Timeout) ->
     case catch genie:call(Name, '$gen_sync_event', Event, Timeout) of
 	{ok,Res} ->
@@ -211,12 +270,22 @@ sync_send_event(Name, Event, Timeout) ->
 	    exit({Reason, {?MODULE, sync_send_event, [Name, Event, Timeout]}})
     end.
 
+%% @doc Send an all state event to a state machine.
+%%
+%% @see gen_fsm:send_all_state_event/2
 send_all_state_event(Name, Event) ->
     genie:send(Name, '$gen_all_state_event', Event).
 
+%% @doc Send an all state event to a list of state machines.
+%%
+%% @see send_all_state_event/2
+%% @see genie:send_list/3
 send_list_all_state_event(Names, Event) ->
     genie:send_list(Names, '$gen_all_state_event', Event).
 
+%% @doc Send a synchronous all state event to a state machine.
+%%
+%% @see gen_fsm:sync_send_all_state_event/2
 sync_send_all_state_event(Name, Event) ->
     case catch genie:call(Name, '$gen_sync_all_state_event', Event) of
 	{ok,Res} ->
@@ -225,6 +294,9 @@ sync_send_all_state_event(Name, Event) ->
 	    exit({Reason, {?MODULE, sync_send_all_state_event, [Name, Event]}})
     end.
 
+%% @doc Send a synchronous all state event to a state machine.
+%%
+%% @see gen_fsm:sync_send_all_state_event/3
 sync_send_all_state_event(Name, Event, Timeout) ->
     case catch genie:call(Name, '$gen_sync_all_state_event', Event, Timeout) of
 	{ok,Res} ->
@@ -242,15 +314,27 @@ sync_send_all_state_event(Name, Event, Timeout) ->
 
 %% Returns Ref, sends event {timeout,Ref,Msg} after Time 
 %% to the (then) current state.
+
+%% @doc Start a timer.
+%%
+%% @see gen_fsm:start_timer/2
 start_timer(Time, Msg) ->
     erlang:start_timer(Time, self(), {'$gen_timer', Msg}).
 
 %% Returns Ref, sends Event after Time to the (then) current state.
+
+%% @doc Send an event to the current state machine after a time.
+%%
+%% @see gen_fsm:send_event_after/2
 send_event_after(Time, Event) ->
     erlang:start_timer(Time, self(), {'$gen_event', Event}).
 
 %% Returns the remaing time for the timer if Ref referred to 
 %% an active timer/send_event_after, false otherwise.
+
+%% @doc Cancel a timer.
+%%
+%% @see gen_fsm:cancel_timer/1
 cancel_timer(Ref) ->
     case erlang:cancel_timer(Ref) of
 	false ->
@@ -269,9 +353,16 @@ cancel_timer(Ref) ->
 %% in proc_lib, see proc_lib(3).
 %% The user is responsible for any initialization of the process,
 %% including registering a name for it.
+
+%% @doc Enter a state machine loop.
+%%
+%% @see gen_fsm:enter_loop/4
 enter_loop(Mod, Options, StateName, StateData) ->
     enter_loop(Mod, Options, StateName, StateData, self(), infinity).
 
+%% @doc Enter a state machine loop.
+%%
+%% @see gen_fsm:enter_loop/5
 enter_loop(Mod, Options, StateName, StateData, {Scope,_} = ServerName)
   when Scope == local; Scope == global ->
     enter_loop(Mod, Options, StateName, StateData, ServerName,infinity);
@@ -280,6 +371,9 @@ enter_loop(Mod, Options, StateName, StateData, {via,_,_} = ServerName) ->
 enter_loop(Mod, Options, StateName, StateData, Timeout) ->
     enter_loop(Mod, Options, StateName, StateData, self(), Timeout).
 
+%% @doc Enter a state machine loop.
+%%
+%% @see gen_fsm:enter_loop/6
 enter_loop(Mod, Options, StateName, StateData, ServerName, Timeout) ->
     Name = genie:proc_name(ServerName, [verify]),
     Parent = genie:parent(),
@@ -293,6 +387,8 @@ enter_loop(Mod, Options, StateName, StateData, ServerName, Timeout) ->
 %%% Finally an acknowledge is sent to Parent and the main
 %%% loop is entered.
 %%% ---------------------------------------------------
+
+%% @private
 init_it(Starter, self, Name, Mod, Args, Options) ->
     init_it(Starter, self(), Name, Mod, Args, Options);
 init_it(Starter, Parent, Name0, Mod, Args, Options) ->
@@ -350,6 +446,7 @@ loop(Parent, Name, StateName, StateData, Mod, Time, Debug) ->
 	  end,
     decode_msg(Msg,Parent, Name, StateName, StateData, Mod, Time, Debug, false).
 
+%% @private
 wake_hib(Parent, Name, StateName, StateData, Mod, Debug) ->
     Msg = receive
 	      Input ->
@@ -387,8 +484,12 @@ decode_msg(Msg,Parent, Name, StateName, StateData, Mod, Time, Debug, Hib) ->
 %%-----------------------------------------------------------------
 %% Callback functions for system messages handling.
 %%-----------------------------------------------------------------
+
+%% @private
 system_continue(Parent, Debug, [Name, StateName, StateData, Mod, Time]) ->
     loop(Parent, Name, StateName, StateData, Mod, Time, Debug).
+
+%% @private
 
 -spec system_terminate(term(), _, _, [term(),...]) -> no_return().
 
@@ -396,6 +497,7 @@ system_terminate(Reason, _Parent, Debug,
 		 [Name, StateName, StateData, Mod, _Time]) ->
     terminate(Reason, Name, [], Mod, StateName, StateData, Debug).
 
+%% @private
 system_code_change([Name, StateName, StateData, Mod, Time],
 		   _Module, OldVsn, Extra) ->
     case catch Mod:code_change(OldVsn, StateName, StateData, Extra) of
@@ -516,6 +618,10 @@ from({'$gen_sync_all_state_event', From, _Event}) -> From;
 from(_) -> undefined.
 
 %% Send a reply to the client.
+
+%% @doc Send a reply to synchronous event.
+%%
+%% @see gen_fsm:reply/2
 reply({To, Tag}, Reply) ->
     catch To ! {Tag, Reply}.
 
@@ -590,6 +696,7 @@ async_error_info(Reason, Starter, Name, Args, Debug) ->
 	    ok
     end.
 
+%% @private
 async_timeout_info(Name, _Mod, Args, Debug) ->
     format("** State machine ~p timed out ~n"
 	   "** When in asynchronous init ~n"
@@ -640,6 +747,8 @@ get_msg(Msg) -> Msg.
 %%-----------------------------------------------------------------
 %% Status information
 %%-----------------------------------------------------------------
+
+%% @private
 format_status(Opt, StatusData) ->
     [PDict, SysState, Parent, Debug, [Name, StateName, StateData, Mod, _Time]] =
 	StatusData,
