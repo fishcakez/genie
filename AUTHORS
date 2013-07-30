@@ -1,21 +1,23 @@
+AUTHORS from stdlib in OTP:
+
 Original Authors and Contributors:
 
 Joe Armstrong
 Robert Virding
 Mike Williams
-Claes Wikström
+Claes Wikstrï¿½m
 Tony Rogvall
-Magnus Fröberg
-Martin Björklund
-Björn Gustavsson
+Magnus Frï¿½berg
+Martin Bjï¿½rklund
+Bjï¿½rn Gustavsson
 Patrik Nyblom
 Arndt Jonasson
 Kenneth Lundin
-Peter Högfeldt
-Torbjörn Törnkvist
+Peter Hï¿½gfeldt
+Torbjï¿½rn Tï¿½rnkvist
 Sebastian Strollo
 Carl Wilhelm Welin
-Lennart Öhman
+Lennart ï¿½hman
 Hans Bolinder
 Raimo Niskanen
 Rickard Green
@@ -28,5 +30,5 @@ Jakob Cederlund
 and probably others...
 
 Open source contributors:
-Richard Carlsson and Sven-Olof Nyström: gb_trees and gb_sets
+Richard Carlsson and Sven-Olof Nystrï¿½m: gb_trees and gb_sets
 Richard Carlsson (several modules)
