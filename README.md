@@ -7,6 +7,7 @@ additional features:
 * `call_list`, `cast_list` and `send_list` functions
 * Common features moved to `genie` for use in custom behaviours
 * Documentation of `genie` to aid creation of custom behaviours
+
 The majority of the code is taken directly from OTP release R16B01. Several
 commits involve moving common functions to the `genie` module.
 
