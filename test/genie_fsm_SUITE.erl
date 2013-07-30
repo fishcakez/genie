@@ -1,4 +1,5 @@
 %%
+%%
 %% %CopyrightBegin%
 %%
 %% Copyright Ericsson AB 1996-2013. All Rights Reserved.
@@ -22,7 +23,7 @@
 
 %% Test cases
 -export([all/0, groups/0,init_per_suite/1, end_per_suite/1,
-	 init_per_group/2,end_per_group/2]).
+	 init_per_group/2,end_per_group/2, init_per_testcase/2]).
 
 -export([start1/1, start2/1, start3/1, start4/1, start5/1, start6/1,
 	 start7/1, start8/1, start9/1, start10/1, start11/1, start12/1,
@@ -89,6 +90,23 @@ init_per_group(_GroupName, Config) ->
     Config.
 
 end_per_group(_GroupName, Config) ->
+    Config.
+
+init_per_testcase(get_state, Config) ->
+    case erlang:function_exported(sys, get_state, 2) of
+        false ->
+            {skip, {not_exported, {sys, get_state, 2}}};
+        true ->
+            Config
+    end;
+init_per_testcase(replace_state, Config) ->
+    case erlang:function_exported(sys, replace_state, 3) of
+        false ->
+            {skip, {not_exported, {sys, replace_state, 3}}};
+        true ->
+            Config
+    end;
+init_per_testcase(_Testcase, Config) ->
     Config.
 
 %% anonymous
@@ -467,18 +485,29 @@ call_format_status(Config) when is_list(Config) ->
     %% check that format_status can handle a name being a term other than a
     %% pid or atom
     ?line dummy_via:reset(),
-    ViaName1 = {via, dummy_via, "CallFormatStatus"},
-    ?line {ok, Pid5} = genie_fsm:start(ViaName1, genie_fsm_SUITE, [], []),
-    ?line Status5 = sys:get_status(ViaName1),
-    ?line {status, Pid5, _Mod, [_PDict5, running, _, _, Data5]} = Status5,
-    ?line [format_status_called | _] = lists:reverse(Data5),
-    ?line stop_it(Pid5),
-    ViaName2 = {via, dummy_via, {name, "term"}},
-    ?line {ok, Pid6} = genie_fsm:start(ViaName2, genie_fsm_SUITE, [], []),
-    ?line Status6 = sys:get_status(ViaName2),
-    ?line {status, Pid6, _Mod, [_PDict6, running, _, _, Data6]} = Status6,
-    ?line [format_status_called | _] = lists:reverse(Data6),
-    ?line stop_it(Pid6).
+    %% Prior to and including R15B gen did not have via support via, and sys
+    %% uses gen.
+    case catch gen:call({via, global, via_test}, '$via_test', test, 1) of
+        {'EXIT', {function_clause, _}} ->
+            {skip, via_not_supported};
+        _ ->
+            ViaName1 = {via, dummy_via, "CallFormatStatus"},
+            ?line {ok, Pid5} = genie_fsm:start(ViaName1, genie_fsm_SUITE, [],
+                                               []),
+            ?line Status5 = sys:get_status(ViaName1),
+            ?line {status, Pid5, _Mod,
+                   [_PDict5, running, _, _, Data5]} = Status5,
+            ?line [format_status_called | _] = lists:reverse(Data5),
+            ?line stop_it(Pid5),
+            ViaName2 = {via, dummy_via, {name, "term"}},
+            ?line {ok, Pid6} = genie_fsm:start(ViaName2, genie_fsm_SUITE, [],
+                                               []),
+            ?line Status6 = sys:get_status(ViaName2),
+            ?line {status, Pid6, _Mod,
+                   [_PDict6, running, _, _, Data6]} = Status6,
+            ?line [format_status_called | _] = lists:reverse(Data6),
+            ?line stop_it(Pid6)
+    end.
 
 
 

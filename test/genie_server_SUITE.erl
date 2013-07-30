@@ -103,6 +103,22 @@ init_per_testcase(Case, Config) when Case == call_remote1;
     {ok,N} = start_node(hubba),
     ?line Dog = ?t:timetrap(?default_timeout),
     [{node,N},{watchdog, Dog} | Config];
+init_per_testcase(get_state, Config) ->
+    case erlang:function_exported(sys, get_state, 2) of
+        false ->
+            {skip, {not_exported, {sys, get_state, 2}}};
+        true ->
+            ?line Dog = ?t:timetrap(?default_timeout),
+            [{watchdog, Dog} | Config]
+    end;
+init_per_testcase(replace_state, Config) ->
+    case erlang:function_exported(sys, replace_state, 3) of
+        false ->
+            {skip, {not_exported, {sys, replace_state, 3}}};
+        true ->
+            ?line Dog = ?t:timetrap(?default_timeout),
+            [{watchdog, Dog} | Config]
+   end;
 init_per_testcase(_Case, Config) ->
     ?line Dog = ?t:timetrap(?default_timeout),
     [{watchdog, Dog} | Config].
