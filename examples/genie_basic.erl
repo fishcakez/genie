@@ -305,10 +305,11 @@ handle_system_msg(get_state = Req, From, Parent, Name, Mod, State, Debug) ->
 %% must be passed as the first element in a 2-tuple. `StateFun' should be
 %% applied to `State' with any exceptions caught. In the case of an exception
 %% `State' is used.
-handle_system_msg({replace_state, StateFun} = Req, From, Parent, Name, Mod,
+handle_system_msg({replace_state, StateFun}, From, Parent, Name, Mod,
 		  State, Debug) ->
     NState = try StateFun(State) catch _:_ -> State end,
-    sys:handle_system_msg(Req, From, Parent, ?MODULE, Debug,
+    %% Note the Msg is `replace_state' and not a tuple including the fun.
+    sys:handle_system_msg(replace_state, From, Parent, ?MODULE, Debug,
 			  {NState, [Name, Mod, NState]});
 %% Handling of other system messages is done by the `sys' module. Once `sys' has
 %% finished it will call `system_continue/3' with arguments `Parent', `Debug'
