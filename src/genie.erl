@@ -344,8 +344,9 @@ cast(Pid, Label, Request) when is_pid(Pid) ->
 %%
 %% `Processes' is a list of targets for the call. The elements of `Processes'
 %% take the same form as the `Process' argument for `cast/3' with an additional
-%% type: `{Pid, ProcessRef}'. This special case will make a call to `Pid' but
-%% associate the result of the call with `ProcessRef'.
+%% type: `{ProcessRef, Pid}'. This special case will make a call to `Pid' but
+%% associate the result of the call with `ProcessRef'. `ProcessRef' can not be
+%% the atom `global'.
 %%
 %% `Label' and `Request' are identical to their arguments in `cast/3'.
 %%
@@ -355,7 +356,7 @@ cast(Pid, Label, Request) when is_pid(Pid) ->
 %% @see cast/3
 
 -spec cast_list(Processes, Label, Request) -> ok when
-      Processes :: [(Process | {pid(), ProcessRef})],
+      Processes :: [(Process | {ProcessRef, pid()})],
       Process :: (Pid :: pid())
 	       | LocalName
 	       | ({LocalName, Node :: node()})
@@ -437,8 +438,9 @@ send(Pid, Label, Request) when is_pid(Pid) ->
 %%
 %% `Processes' is a list of targets for the call. The elements of `Processes'
 %% take the same form as the `Process' argument for `send/3' with an additional
-%% type: `{Pid, ProcessRef}'. This special case will make a call to `Pid' but
-%% associate the result of the call with `ProcessRef'.
+%% type: `{ProcessRef, Pid}'. This special case will make a call to `Pid' but
+%% associate the result of the call with `ProcessRef'. `ProcessRef' can not be
+%% the atom `global'.
 %%
 %% `Label' and `Request' are identical to their arguments in `send/3'.
 %%
@@ -448,7 +450,7 @@ send(Pid, Label, Request) when is_pid(Pid) ->
 %% @see send/3
 
 -spec send_list(Processes, Label, Request) -> ok when
-      Processes :: [(Process | {pid(), ProcessRef})],
+      Processes :: [(Process | {ProcessRef, pid()})],
       Process :: (Pid :: pid())
 	       | LocalName
 	       | ({LocalName, Node :: node()})
@@ -589,7 +591,7 @@ call({_LocalName, Node}=Process, Label, Request, Timeout)
 %% @equiv call_list(Process, Label, Request, 5000)
 
 -spec call_list(Processes, Label, Request) -> Result when
-      Processes :: [(Process | {pid(), ProcessRef})],
+      Processes :: [(Process | {ProcessRef, pid()})],
       Process :: (Pid :: pid())
 	       | LocalName
 	       | ({LocalName, Node :: node()})
@@ -615,8 +617,9 @@ call_list(Processes, Label, Request) ->
 %%
 %% `Processes' is a list of targets for the call. The elements of `Processes'
 %% take the same form as the `Process' argument for `call/4' with an additional
-%% type: `{Pid, ProcessRef}'. This special case will make a call to `Pid' but
-%% associate the result of the call with `ProcessRef'.
+%% type: `{ProcessRef, Pid}'. This special case will make a call to `Pid' but
+%% associate the result of the call with `ProcessRef'. `ProcessRef' can not be
+%% the atom `global'.
 %%
 %% `Label' and `Request' are identical to their arguments in `call/4'.
 %%
@@ -630,14 +633,14 @@ call_list(Processes, Label, Request) ->
 %% element is the target process from `Processes', the second element is the
 %% result of the call from that process. `BadProcesses' takes the same form
 %% except the second element is the error reason. As noted above if the process
-%% took the form `{Pid, ProcessRef}' then first element of its tuple will be
+%% took the form `{ProcessRef, Pid}' then first element of its tuple will be
 %% `ProcessRef'.
 %%
 %% @see call/4
 %% @see reply/2
 
 -spec call_list(Processes, Label, Request, Timeout) -> Result when
-      Processes :: [(Process | {pid(), ProcessRef})],
+      Processes :: [(Process | {ProcessRef, pid()})],
       Process :: (Pid :: pid())
 	       | LocalName
 	       | ({LocalName, Node :: node()})
@@ -1038,8 +1041,6 @@ do_cast(Process, Msg) ->
 
 do_cast_list(Pid, Msg) when is_pid(Pid) ->
     do_cast(Pid, Msg);
-do_cast_list({Pid, _ProcessRef}, Msg) when is_pid(Pid) ->
-    do_cast(Pid, Msg);
 do_cast_list({global, GlobalName}, Msg) ->
     case global:whereis_name(GlobalName) of
 	Pid when is_pid(Pid) ->
@@ -1058,12 +1059,11 @@ do_cast_list(LocalName, Msg) when is_atom(LocalName) ->
     do_cast(LocalName, Msg);
 do_cast_list({LocalName, Node} = Process, Msg)
   when is_atom(LocalName) andalso is_atom(Node) ->
-    do_cast(Process, Msg).
+    do_cast(Process, Msg);
+do_cast_list({_ProcessRef, Pid}, Msg) when is_pid(Pid) ->
+    do_cast(Pid, Msg).
 
 do_send_list(Pid, Msg) when is_pid(Pid) ->
-    erlang:send(Pid, Msg),
-    ok;
-do_send_list({Pid, _ProcessRef}, Msg) when is_pid(Pid) ->
     erlang:send(Pid, Msg),
     ok;
 do_send_list({global, GlobalName}, Msg) ->
@@ -1078,6 +1078,9 @@ do_send_list(LocalName, Msg) when is_atom(LocalName) ->
 do_send_list({LocalName, Node} = Process, Msg)
   when is_atom(LocalName) andalso is_atom(Node) ->
     erlang:send(Process, Msg),
+    ok;
+do_send_list({_ProcessRef, Pid}, Msg) when is_pid(Pid) ->
+    erlang:send(Pid, Msg),
     ok.
 
 do_call(Process, Label, Request, Timeout) ->
@@ -1197,11 +1200,6 @@ send_processes([Pid | Processes], Label, Request, Monitors, Bad)
     Ref = monitor_and_send(Pid, Label, Request),
     send_processes(Processes, Label, Request, [{Pid, Ref, Pid} | Monitors],
 		   Bad);
-send_processes([{Pid, ProcessRef} | Processes], Label, Request, Monitors, Bad)
-  when is_pid(Pid) ->
-    Ref = monitor_and_send(Pid, Label, Request),
-    send_processes(Processes, Label, Request,
-		   [{ProcessRef, Ref, Pid} | Monitors], Bad);
 send_processes([{global, GlobalName} = Process | Processes], Label, Request,
 	       Monitors, Bad) ->
     case global:whereis_name(GlobalName) of
@@ -1243,6 +1241,11 @@ send_processes([{LocalName, Node} = Process | Processes], Label, Request,
     Ref = monitor_and_send(Process, Label, Request),
     send_processes(Processes, Label, Request,
 		   [{Process, Ref, Process} | Monitors], Bad);
+send_processes([{ProcessRef, Pid} | Processes], Label, Request, Monitors, Bad)
+  when is_pid(Pid) ->
+    Ref = monitor_and_send(Pid, Label, Request),
+    send_processes(Processes, Label, Request,
+		   [{ProcessRef, Ref, Pid} | Monitors], Bad);
 %% Ignore invalid - same behaviour as multi_call/5.
 send_processes([_Invalid | Processes], Label, Request, Monitors, Bad) ->
     send_processes(Processes, Label, Request, Monitors, Bad);

@@ -548,7 +548,7 @@ cast_list(Config) when is_list(Config) ->
     ?line ok = genie_server:call({global, my_test_name}, started_p),
     ?line ok = genie_server:call({via, dummy_via, my_test_name}, started_p),
 
-    ?line ok = genie_server:cast_list([my_test_name, Pid2, {Pid3, pidref},
+    ?line ok = genie_server:cast_list([my_test_name, Pid2, {pidref, Pid3},
 				       {global, my_test_name},
 				       {via, dummy_via, my_test_name}],
 				      {self(),handle_cast}),
@@ -583,7 +583,7 @@ cast_list(Config) when is_list(Config) ->
 		    test_server:fail(handle_cast)
 	  end,
 
-    ?line ok = genie_server:cast_list([my_test_name, Pid2, {Pid3, pidref},
+    ?line ok = genie_server:cast_list([my_test_name, Pid2, {pidref, Pid3},
 				       {global, my_test_name},
 				       {via, dummy_via, my_test_name}],
 				      {self(),delayed_cast,1}),
@@ -617,7 +617,7 @@ cast_list(Config) when is_list(Config) ->
 	  after 1000 ->
 		  test_server:fail(delayed_cast)
 	  end,
-    ?line ok = genie_server:cast_list([my_test_name, Pid2, {Pid3, pidref},
+    ?line ok = genie_server:cast_list([my_test_name, Pid2, {pidref, Pid3},
 				       {global, my_test_name},
 				       {via, dummy_via, my_test_name}],
 				       {self(),stop}),
@@ -956,9 +956,9 @@ call_list(Config) when is_list(Config) ->
 					       genie_server_SUITE, [], []),
 
     %% parellel calls.
-    ?line {Replies, Bad} = genie_server:call_list([BadPid1, {BadPid2, bad},
+    ?line {Replies, Bad} = genie_server:call_list([BadPid1, {bad, BadPid2},
 						   Pid1,
-						   {Pid2, good},
+						   {good, Pid2},
 						   {via, dummy_via,
 						    my_test_name}],
 						  {delayed_answer, 1000},
