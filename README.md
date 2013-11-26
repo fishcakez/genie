@@ -13,7 +13,7 @@ commits involve moving common functions to the `genie` module.
 
 semver
 ------
-This application follows `semver` and is at version `1.0.0`.
+This application follows `semver` and is at version `1.0.1`.
 
 Incompatibility
 ---------------
