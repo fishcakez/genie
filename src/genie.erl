@@ -967,7 +967,7 @@ do_spawn(GenMod, link, Mod, Args, Options, false) ->
 			spawn_opts(Options));
 do_spawn(GenMod, link, Mod, Args, Options, AsyncTimeout) ->
     Pid = proc_lib:spawn_opt(?MODULE, init_it,
-			     [GenMod, self(), self, Mod, Args, Options,
+			     [GenMod, self(), self(), Mod, Args, Options,
 			      AsyncTimeout], 
 			     [link | spawn_opts(Options)]),
     {ok, Pid};
