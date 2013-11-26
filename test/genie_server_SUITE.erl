@@ -1718,7 +1718,7 @@ async_stop(_) ->
     ?line receive
 	{error,_GroupLeader4,{Pid4,
 			      "** Generic server"++_,
-			      [Pid4,stop,stopped]}} ->
+			      [Pid4,init,stop,stopped]}} ->
 	    ok;
 	Other4a ->
  	    ?line io:format("Unexpected: ~p", [Other4a]),
@@ -1773,7 +1773,7 @@ async_exit(_) ->
     ?line receive
 	{error,_GroupLeader4,{Pid4,
 			      "** Generic server"++_,
-			      [Pid4,{exit, stopped},stopped]}} ->
+			      [Pid4,init,{exit, stopped},stopped]}} ->
 	    ok;
 	Other4a ->
 	    ?line io:format("Unexpected: ~p", [Other4a]),
@@ -1801,7 +1801,7 @@ async_timer_timeout(_) ->
     receive
 	{error,_GroupLeader,{_Timer,
 			      "** Generic server"++_,
-			      [Pid,sleep,killed]}} ->
+			      [Pid,init,sleep,killed]}} ->
 	    ok;
 	Other ->
 	    ?line io:format("Unexpected: ~p", [Other]),

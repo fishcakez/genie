@@ -686,10 +686,10 @@ async_error_info(Reason, Starter, Name, Args, Debug) ->
 			element(1, Reason) =:= shutdown) ->
 	    Reason1 = reason(Reason),
 	    format("** State machine ~p terminating \n"
-		   "** When in asynchronous init ~n"
+		   "** When in ~p ~p ~n"
 		   "** When Arguments == ~p~n"
 		   "** Reason for termination == ~n** ~p~n",
-		   [Name, Args, Reason1]),
+		   [Name, asynchronous, init, Args, Reason1]),
 	    sys:print_log(Debug),
 	    ok;
 	_ ->
@@ -699,10 +699,10 @@ async_error_info(Reason, Starter, Name, Args, Debug) ->
 %% @private
 async_timeout_info(Name, _Mod, Args, Debug) ->
     format("** State machine ~p timed out ~n"
-	   "** When in asynchronous init ~n"
+	   "** When in ~p ~p ~n"
 	   "** When Arguments == ~p~n"
 	   "** Reason for termination == ~n** ~p~n",
-	   [Name, Args, killed]),
+	   [Name, asynchronous, init, Args, killed]),
     sys:print_log(Debug),
     ok.
 

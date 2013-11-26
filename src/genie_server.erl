@@ -816,10 +816,10 @@ async_error_info(Reason, Starter, Name, Args, Debug) ->
 			element(1, Reason) =:= shutdown) ->
 	    Reason1 = reason(Reason),
 	    format("** Generic server ~p terminating \n"
-		   "** When in asynchronous init ~n"
+		   "** When in asynchronous ~p ~n"
 		   "** When Server arguments == ~p~n"
 		   "** Reason for termination == ~n** ~p~n",
-		   [Name, Args, Reason1]),
+		   [Name, init, Args, Reason1]),
 	    sys:print_log(Debug),
 	    ok;
 	_ ->
@@ -829,10 +829,10 @@ async_error_info(Reason, Starter, Name, Args, Debug) ->
 %% @private
 async_timeout_info(Name, _Mod, Args, Debug) ->
     format("** Generic server ~p timed out \n"
-	   "** When in asynchronous init ~n"
+	   "** When in asynchronous ~p ~n"
 	   "** When Server arguments == ~p~n"
 	   "** Reason for termination == ~n** ~p~n",
-	   [Name, Args, killed]),
+	   [Name, init, Args, killed]),
     sys:print_log(Debug),
     ok.
 

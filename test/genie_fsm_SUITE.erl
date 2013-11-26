@@ -963,7 +963,7 @@ async_start5(Config) when is_list(Config) ->
     ?line receive
 	      {error,_GroupLeader4,{Pid4,
 				    "** State machine"++_,
-				    [Pid4,stop,stopped]}} ->
+				    [Pid4,asynchronous,init,stop,stopped]}} ->
 		  ok;
 	      Other4a ->
 		  ?line io:format("Unexpected: ~p", [Other4a]),
@@ -1177,7 +1177,7 @@ async_exit(_) ->
     ?line receive
 	{error,_GroupLeader4,{Pid4,
 			      "** State machine"++_,
-			      [Pid4,{exit, stopped},stopped]}} ->
+			      [Pid4,asynchronous,init,{exit, stopped},stopped]}} ->
 	    ok;
 	Other4a ->
 	    ?line io:format("Unexpected: ~p", [Other4a]),
@@ -1205,7 +1205,7 @@ async_timer_timeout(_) ->
     receive
 	{error,_GroupLeader,{_Timer,
 			      "** State machine"++_,
-			      [Pid,sleep,killed]}} ->
+			      [Pid,asynchronous,init,sleep,killed]}} ->
 	    ok;
 	Other ->
 	    ?line io:format("Unexpected: ~p", [Other]),
